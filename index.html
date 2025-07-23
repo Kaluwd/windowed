@@ -80,6 +80,7 @@
       gap: 0.5rem;
       z-index: 100;
       align-items: center;
+      overflow-x: auto;
     }
 
     .task-item {
@@ -89,6 +90,7 @@
       border-radius: 1rem;
       cursor: pointer;
       font-size: 0.9rem;
+      white-space: nowrap;
     }
 
     .toggle-theme {
@@ -140,58 +142,59 @@
   </div>
 </div>
 
+<!-- Location App -->
+<div id="location" class="window" style="top: 200px; left: 40px; display: none;">
+  <div class="header" id="drag-location">
+    <span>📍 Location</span>
+    <button onclick="closeApp('location')">×</button>
+  </div>
+  <div class="content">
+    <div id="locationInfo">Getting location...</div>
+  </div>
+</div>
+
+<!-- File Explorer App -->
+<div id="explorer" class="window" style="top: 250px; left: 50px; display: none;">
+  <div class="header" id="drag-explorer">
+    <span>📁 Explorer</span>
+    <button onclick="closeApp('explorer')">×</button>
+  </div>
+  <div class="content">
+    <button onclick="loadFile()">📂 Load File</button>
+    <pre id="fileContent"></pre>
+  </div>
+</div>
+
+<!-- Clipboard Viewer App -->
+<div id="clipboard" class="window" style="top: 300px; left: 60px; display: none;">
+  <div class="header" id="drag-clipboard">
+    <span>📋 Clipboard</span>
+    <button onclick="closeApp('clipboard')">×</button>
+  </div>
+  <div class="content">
+    <button onclick="showClipboard()">📥 Paste</button>
+    <div id="clipboardData"></div>
+  </div>
+</div>
+
 <!-- Taskbar -->
 <div class="taskbar">
   <div class="task-item" onclick="openApp('notepad')">📝 Notepad</div>
   <div class="task-item" onclick="openApp('camera')">📸 Camera</div>
+  <div class="task-item" onclick="openApp('location')">📍 Location</div>
+  <div class="task-item" onclick="openApp('explorer')">📁 Explorer</div>
+  <div class="task-item" onclick="openApp('clipboard')">📋 Clipboard</div>
   <button class="toggle-theme" onclick="toggleTheme()">🌓 Theme</button>
 </div>
 
 <script>
-  function makeDraggable(winId, dragId) {
-    const win = document.getElementById(winId);
-    const drag = document.getElementById(dragId);
-    let offsetX, offsetY, isDragging = false;
-
-    drag.addEventListener('mousedown', e => {
-      isDragging = true;
-      const rect = win.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-    });
-
-    document.addEventListener('mousemove', e => {
-      if (isDragging) {
-        win.style.left = `${e.clientX - offsetX}px`;
-        win.style.top = `${e.clientY - offsetY}px`;
-      }
-    });
-
-    document.addEventListener('mouseup', () => isDragging = false);
-
-    drag.addEventListener('touchstart', e => {
-      isDragging = true;
-      const rect = win.getBoundingClientRect();
-      offsetX = e.touches[0].clientX - rect.left;
-      offsetY = e.touches[0].clientY - rect.top;
-    });
-
-    document.addEventListener('touchmove', e => {
-      if (isDragging) {
-        win.style.left = `${e.touches[0].clientX - offsetX}px`;
-        win.style.top = `${e.touches[0].clientY - offsetY}px`;
-      }
-    });
-
-    document.addEventListener('touchend', () => isDragging = false);
-  }
-
-  makeDraggable('notepad', 'drag-notepad');
-  makeDraggable('camera', 'drag-camera');
+  const apps = ['notepad', 'camera', 'location', 'explorer', 'clipboard'];
+  apps.forEach(app => makeDraggable(app, `drag-${app}`));
 
   function openApp(id) {
     document.getElementById(id).style.display = 'block';
     if (id === 'camera') startCamera();
+    if (id === 'location') getLocation();
   }
 
   function closeApp(id) {
@@ -202,10 +205,7 @@
     const content = document.getElementById('notepadText').value;
     try {
       const handle = await window.showSaveFilePicker({
-        types: [{
-          description: 'Text Files',
-          accept: {'text/plain': ['.txt']}
-        }]
+        types: [{ description: 'Text Files', accept: {'text/plain': ['.txt']} }]
       });
       const writable = await handle.createWritable();
       await writable.write(content);
@@ -217,9 +217,7 @@
 
   function startCamera() {
     navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        document.getElementById('video').srcObject = stream;
-      })
+      .then(stream => document.getElementById('video').srcObject = stream)
       .catch(() => alert("Camera access denied"));
   }
 
@@ -227,6 +225,35 @@
     const html = document.documentElement;
     const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', newTheme);
+  }
+
+  function getLocation() {
+    const loc = document.getElementById('locationInfo');
+    navigator.geolocation.getCurrentPosition(pos => {
+      loc.textContent = `Latitude: ${pos.coords.latitude}, Longitude: ${pos.coords.longitude}`;
+    }, () => {
+      loc.textContent = 'Location access denied';
+    });
+  }
+
+  async function loadFile() {
+    try {
+      const [fileHandle] = await window.showOpenFilePicker();
+      const file = await fileHandle.getFile();
+      const text = await file.text();
+      document.getElementById('fileContent').textContent = text;
+    } catch {
+      alert('Loading file failed or not supported.');
+    }
+  }
+
+  async function showClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('clipboardData').textContent = text || 'Clipboard is empty.';
+    } catch {
+      alert('Clipboard access denied or unsupported.');
+    }
   }
 </script>
 </body>
