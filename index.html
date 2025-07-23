@@ -12,7 +12,7 @@
 <div id="lockScreen" class="lock-screen" style="display: none;">
   <h1>WebOS Locked</h1>
   <input type="password" id="lockPassword" placeholder="Enter Password" />
-  <button onclick="windowManager.unlockScreen()">Unlock</button>
+  <button onclick="unlockScreen()">Unlock</button>
 </div>
 
 <!-- Notepad App -->
@@ -27,8 +27,8 @@
   </div>
   <div class="content">
     <textarea id="notepadText" placeholder="Type here..."></textarea>
-    <button onclick="notepad.saveNote()">💾 Save</button>
-    <button onclick="notepad.loadNote()">📂 Open</button>
+    <button onclick="saveNote()">💾 Save</button>
+    <button onclick="loadNote()">📂 Open</button>
   </div>
 </div>
 
@@ -44,7 +44,7 @@
   </div>
   <div class="content">
     <video id="video" autoplay playsinline></video>
-    <button onclick="camera.takePhoto()">📷 Take Photo</button>
+    <button onclick="takePhoto()">📷 Take Photo</button>
     <canvas id="photoCanvas" style="display: none;"></canvas>
   </div>
 </div>
@@ -61,7 +61,7 @@
   </div>
   <div class="content">
     <div id="locationInfo">Getting location...</div>
-    <button onclick="locationApp.getLocation()">🔄 Refresh</button>
+    <button onclick="getLocation()">🔄 Refresh</button>
     <div id="map" style="height: 200px; background: var(--button-bg); margin-top: 0.5rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
       Map will appear here
     </div>
@@ -79,8 +79,8 @@
     </div>
   </div>
   <div class="content">
-    <button onclick="explorer.loadFile()">📂 Open File</button>
-    <button onclick="explorer.saveFile()">💾 Save File</button>
+    <button onclick="loadFile()">📂 Open File</button>
+    <button onclick="saveFile()">💾 Save File</button>
     <pre id="fileContent">No file loaded</pre>
   </div>
 </div>
@@ -96,8 +96,8 @@
     </div>
   </div>
   <div class="content">
-    <button onclick="clipboardApp.showClipboard()">📥 Paste</button>
-    <button onclick="clipboardApp.copyToClipboard()">📤 Copy</button>
+    <button onclick="showClipboard()">📥 Paste</button>
+    <button onclick="copyToClipboard()">📤 Copy</button>
     <textarea id="clipboardText" placeholder="Paste or type text here..."></textarea>
     <div id="clipboardStatus"></div>
   </div>
@@ -116,26 +116,26 @@
   <div class="content">
     <div class="calculator-display" id="calcDisplay">0</div>
     <div class="calculator">
-      <button onclick="calculator.clear()">C</button>
-      <button onclick="calculator.append('(')">(</button>
-      <button onclick="calculator.append(')')">)</button>
-      <button onclick="calculator.append('/')">/</button>
-      <button onclick="calculator.append('7')">7</button>
-      <button onclick="calculator.append('8')">8</button>
-      <button onclick="calculator.append('9')">9</button>
-      <button onclick="calculator.append('*')">×</button>
-      <button onclick="calculator.append('4')">4</button>
-      <button onclick="calculator.append('5')">5</button>
-      <button onclick="calculator.append('6')">6</button>
-      <button onclick="calculator.append('-')">-</button>
-      <button onclick="calculator.append('1')">1</button>
-      <button onclick="calculator.append('2')">2</button>
-      <button onclick="calculator.append('3')">3</button>
-      <button onclick="calculator.append('+')">+</button>
-      <button onclick="calculator.append('0')">0</button>
-      <button onclick="calculator.append('.')">.</button>
-      <button onclick="calculator.backspace()">⌫</button>
-      <button class="span-2" onclick="calculator.calculate()">=</button>
+      <button onclick="clearCalculator()">C</button>
+      <button onclick="appendToCalc('(')">(</button>
+      <button onclick="appendToCalc(')')">)</button>
+      <button onclick="appendToCalc('/')">/</button>
+      <button onclick="appendToCalc('7')">7</button>
+      <button onclick="appendToCalc('8')">8</button>
+      <button onclick="appendToCalc('9')">9</button>
+      <button onclick="appendToCalc('*')">×</button>
+      <button onclick="appendToCalc('4')">4</button>
+      <button onclick="appendToCalc('5')">5</button>
+      <button onclick="appendToCalc('6')">6</button>
+      <button onclick="appendToCalc('-')">-</button>
+      <button onclick="appendToCalc('1')">1</button>
+      <button onclick="appendToCalc('2')">2</button>
+      <button onclick="appendToCalc('3')">3</button>
+      <button onclick="appendToCalc('+')">+</button>
+      <button onclick="appendToCalc('0')">0</button>
+      <button onclick="appendToCalc('.')">.</button>
+      <button onclick="backspaceCalc()">⌫</button>
+      <button class="span-2" onclick="calculate()">=</button>
     </div>
   </div>
 </div>
@@ -152,12 +152,10 @@
   </div>
   <div class="content">
     <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-      <input type="text" id="browserUrl" placeholder="Enter URL (e.g., example.com)" style="flex-grow: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--button-bg);" />
-      <button onclick="browserApp.loadUrl()">Go</button>
+      <input type="text" id="browserUrl" placeholder="Enter URL" style="flex-grow: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--button-bg);" />
+      <button onclick="loadUrl()">Go</button>
     </div>
-    <div id="browserContent" style="height: 300px; background: var(--button-bg); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
-      Enter a URL to browse
-    </div>
+    <iframe id="browserFrame" src="about:blank"></iframe>
   </div>
 </div>
 
@@ -178,7 +176,7 @@
     <div class="alarm-form">
       <input type="time" id="alarmTime" />
       <input type="text" id="alarmLabel" placeholder="Alarm Label" />
-      <button onclick="alarm.setAlarm()">Set Alarm</button>
+      <button onclick="setAlarm()">Set Alarm</button>
     </div>
     <div class="alarm-list" id="alarmList"></div>
   </div>
@@ -200,39 +198,27 @@
       Type "help" for commands<br><br>
     </div>
     <div class="terminal-input">
-      <input type="text" id="terminalInput" placeholder="Enter command..." onkeypress="terminal.handleKey(event)" />
-      <button onclick="terminal.execute()">↵</button>
+      <input type="text" id="terminalInput" placeholder="Enter command..." onkeypress="handleTerminalKey(event)" />
+      <button onclick="executeCommand()">↵</button>
     </div>
   </div>
 </div>
 
 <!-- Taskbar -->
 <div class="taskbar">
-  <div class="task-item" onclick="windowManager.openApp('notepad')">📝 Notepad</div>
-  <div class="task-item" onclick="windowManager.openApp('camera')">📸 Camera</div>
-  <div class="task-item" onclick="windowManager.openApp('location')">📍 Location</div>
-  <div class="task-item" onclick="windowManager.openApp('explorer')">📁 Explorer</div>
-  <div class="task-item" onclick="windowManager.openApp('clipboard')">📋 Clipboard</div>
-  <div class="task-item" onclick="windowManager.openApp('calculator')">🧮 Calculator</div>
-  <div class="task-item" onclick="windowManager.openApp('browser')">🌐 Browser</div>
-  <div class="task-item" onclick="windowManager.openApp('clock')">🕓 Clock</div>
-  <div class="task-item" onclick="windowManager.openApp('terminal')">💬 Terminal</div>
-  <button class="toggle-theme" onclick="theme.toggle()">🌓 Theme</button>
-  <button class="task-item" onclick="windowManager.lockScreen()">🔒 Lock</button>
+  <div class="task-item" onclick="openApp('notepad')">📝 Notepad</div>
+  <div class="task-item" onclick="openApp('camera')">📸 Camera</div>
+  <div class="task-item" onclick="openApp('location')">📍 Location</div>
+  <div class="task-item" onclick="openApp('explorer')">📁 Explorer</div>
+  <div class="task-item" onclick="openApp('clipboard')">📋 Clipboard</div>
+  <div class="task-item" onclick="openApp('calculator')">🧮 Calculator</div>
+  <div class="task-item" onclick="openApp('browser')">🌐 Browser</div>
+  <div class="task-item" onclick="openApp('clock')">🕓 Clock</div>
+  <div class="task-item" onclick="openApp('terminal')">💬 Terminal</div>
+  <button class="toggle-theme" onclick="toggleTheme()">🌓 Theme</button>
+  <button class="task-item" onclick="lockScreen()">🔒 Lock</button>
 </div>
 
-<script src="windowManager.js"></script>
-<script src="notepad.js"></script>
-<script src="camera.js"></script>
-<script src="location.js"></script>
-<script src="explorer.js"></script>
-<script src="clipboard.js"></script>
-<script src="calculator.js"></script>
-<script src="browser.js"></script>
-<script src="clock.js"></script>
-<script src="alarm.js"></script>
-<script src="terminal.js"></script>
-<script src="theme.js"></script>
-<script src="init.js"></script>
+<script src="index.js"></script>
 </body>
 </html>
