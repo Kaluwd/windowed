@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mobile WebOS Toolkit</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f0f0f0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .window {
+      position: fixed;
+      width: 90%;
+      max-width: 400px;
+      background: white;
+      border-radius: 1rem;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+      z-index: 10;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .header {
+      background: #111827;
+      color: white;
+      padding: 0.6rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: grab;
+    }
+
+    .header button {
+      background: transparent;
+      color: white;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .content {
+      padding: 1rem;
+    }
+
+    .taskbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111827;
+      display: flex;
+      padding: 0.5rem;
+      gap: 0.5rem;
+      z-index: 100;
+    }
+
+    .task-item {
+      background: #374151;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Notepad App -->
+<div id="notepad" class="window" style="top: 100px; left: 20px; display: none;">
+  <div class="header" id="drag-notepad">
+    <span>📝 Notepad</span>
+    <button onclick="closeApp('notepad')">×</button>
+  </div>
+  <div class="content">
+    <textarea id="notepadText" placeholder="Type here..."></textarea>
+    <button onclick="saveNote()">💾 Save</button>
+  </div>
+</div>
+
+<!-- Camera App -->
+<div id="camera" class="window" style="top: 150px; left: 30px; display: none;">
+  <div class="header" id="drag-camera">
+    <span>📸 Camera</span>
+    <button onclick="closeApp('camera')">×</button>
+  </div>
+  <div class="content">
+    <video id="video" autoplay></video>
+  </div>
+</div>
+
+<!-- Taskbar -->
+<div class="taskbar">
+  <div class="task-item" onclick="openApp('notepad')">📝 Notepad</div>
+  <div class="task-item" onclick="openApp('camera')">📸 Camera</div>
+</div>
+
+<script>
+  // Drag logic
+  function makeDraggable(winId, dragId) {
+    const win = document.getElementById(winId);
+    const drag = document.getElementById(dragId);
+    let offsetX, offsetY, isDragging = false;
+
+    drag.addEventListener('mousedown', e => {
+      isDragging = true;
+      const rect = win.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (isDragging) {
+        win.style.left = `${e.clientX - offsetX}px`;
+        win.style.top = `${e.clientY - offsetY}px`;
+      }
+    });
+
+    document.addEventListener('mouseup', () => isDragging = false);
+
+    drag.addEventListener('touchstart', e => {
+      isDragging = true;
+      const rect = win.getBoundingClientRect();
+      offsetX = e.touches[0].clientX - rect.left;
+      offsetY = e.touches[0].clientY - rect.top;
+    });
+
+    document.addEventListener('touchmove', e => {
+      if (isDragging) {
+        win.style.left = `${e.touches[0].clientX - offsetX}px`;
+        win.style.top = `${e.touches[0].clientY - offsetY}px`;
+      }
+    });
+
+    document.addEventListener('touchend', () => isDragging = false);
+  }
+
+  makeDraggable('notepad', 'drag-notepad');
+  makeDraggable('camera', 'drag-camera');
+
+  function openApp(id) {
+    document.getElementById(id).style.display = 'block';
+    if (id === 'camera') startCamera();
+  }
+
+  function closeApp(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+
+  async function saveNote() {
+    const content = document.getElementById('notepadText').value;
+    try {
+      const handle = await window.showSaveFilePicker({
+        types: [{
+          description: 'Text Files',
+          accept: {'text/plain': ['.txt']}
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+    } catch (err) {
+      alert('Save cancelled or not supported.');
+    }
+  }
+
+  function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        document.getElementById('video').srcObject = stream;
+      })
+      .catch(() => alert("Camera access denied"));
+  }
+</script>
+</body>
+</html>
