@@ -4,7 +4,361 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mobile WebOS Toolkit</title>
-  <link rel="stylesheet" href="styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    :root[data-theme='light'] {
+      --bg: #f0f0f0;
+      --text: #000;
+      --window-bg: white;
+      --header-bg: #111827;
+      --task-bg: #111827;
+      --task-item-bg: #374151;
+      --task-item-color: white;
+      --button-bg: #e0e0e0;
+      --button-text: #000;
+      --lock-screen-bg: rgba(0,0,0,0.7);
+    }
+
+    :root[data-theme='dark'] {
+      --bg: #1e1e1e;
+      --text: #fff;
+      --window-bg: #2d2d2d;
+      --header-bg: #333;
+      --task-bg: #111;
+      --task-item-bg: #444;
+      --task-item-color: #fff;
+      --button-bg: #444;
+      --button-text: #fff;
+      --lock-screen-bg: rgba(0,0,0,0.9);
+    }
+
+    .window {
+      position: fixed;
+      width: 90%;
+      max-width: 400px;
+      background: var(--window-bg);
+      border-radius: 1rem;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+      z-index: 10;
+      overflow: hidden;
+      touch-action: none;
+      display: none;
+    }
+
+    .window.maximized {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none;
+      top: 0 !important;
+      left: 0 !important;
+      border-radius: 0;
+    }
+
+    .header {
+      background: var(--header-bg);
+      color: white;
+      padding: 0.6rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: move;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .header .controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .header button {
+      background: transparent;
+      color: white;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .header button:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .content {
+      padding: 1rem;
+      height: calc(100% - 3rem);
+      overflow: auto;
+    }
+
+    .window.maximized .content {
+      height: calc(100% - 3rem) !important;
+    }
+
+    .taskbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: var(--task-bg);
+      display: flex;
+      padding: 0.5rem;
+      gap: 0.5rem;
+      z-index: 100;
+      align-items: center;
+      overflow-x: auto;
+    }
+
+    .task-item {
+      background: var(--task-item-bg);
+      color: var(--task-item-color);
+      padding: 0.5rem 1rem;
+      border-radius: 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .task-item:active {
+      opacity: 0.8;
+    }
+
+    .toggle-theme {
+      margin-left: auto;
+      background: var(--task-item-bg);
+      color: var(--task-item-color);
+      padding: 0.4rem 0.8rem;
+      border: none;
+      border-radius: 1rem;
+      cursor: pointer;
+    }
+
+    button {
+      background: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin: 0.25rem 0;
+    }
+
+    button:active {
+      opacity: 0.8;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      background: var(--window-bg);
+      color: var(--text);
+      border: 1px solid var(--button-bg);
+      resize: none;
+      margin-bottom: 0.5rem;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 0.5rem;
+      background: black;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: var(--button-bg);
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .calculator {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .calculator-display {
+      grid-column: span 4;
+      background: var(--button-bg);
+      padding: 1rem;
+      text-align: right;
+      border-radius: 0.5rem;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .calculator button {
+      font-size: 1.2rem;
+      padding: 0.8rem;
+    }
+
+    .calculator button.span-2 {
+      grid-column: span 2;
+    }
+
+    .clock-display {
+      font-size: 3rem;
+      text-align: center;
+      margin: 1rem 0;
+    }
+
+    .alarm-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .alarm-form input {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--button-bg);
+      background: var(--window-bg);
+      color: var(--text);
+    }
+
+    .alarm-list {
+      margin-top: 1rem;
+    }
+
+    .alarm-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--button-bg);
+    }
+
+    .terminal {
+      background: var(--button-bg);
+      color: var(--text);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+    }
+
+    .terminal-input {
+      display: flex;
+      margin-top: 0.5rem;
+    }
+
+    .terminal-input input {
+      flex-grow: 1;
+      padding: 0.5rem;
+      border-radius: 0.5rem 0 0 0.5rem;
+      border: 1px solid var(--button-bg);
+      background: var(--window-bg);
+      color: var(--text);
+    }
+
+    .terminal-input button {
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin: 0;
+    }
+
+    .lock-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--lock-screen-bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+    }
+
+    .lock-screen input {
+      padding: 0.8rem;
+      border-radius: 0.5rem;
+      border: none;
+      margin: 1rem 0;
+      width: 80%;
+      max-width: 300px;
+    }
+
+    .lock-screen button {
+      padding: 0.8rem 1.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      background: #4CAF50;
+      color: white;
+    }
+
+    /* Browser specific styles */
+    .browser-content {
+      height: 300px;
+      background: var(--button-bg);
+      border-radius: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      text-align: center;
+      padding: 1rem;
+    }
+    
+    .browser-message {
+      margin-bottom: 1rem;
+    }
+    
+    .browser-error {
+      color: #ff4444;
+    }
+    
+    .browser-link {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: var(--header-bg);
+      color: white;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 480px) {
+      .window {
+        width: 95%;
+      }
+      
+      .task-item {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+      }
+      
+      .clock-display {
+        font-size: 2rem;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -152,10 +506,15 @@
   </div>
   <div class="content">
     <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-      <input type="text" id="browserUrl" placeholder="Enter URL" style="flex-grow: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--button-bg);" />
+      <input type="text" id="browserUrl" placeholder="Enter URL (e.g., example.com)" 
+             style="flex-grow: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--button-bg);" />
       <button onclick="loadUrl()">Go</button>
     </div>
-    <iframe id="browserFrame" src="about:blank"></iframe>
+    <div id="browserContent" class="browser-content">
+      <div class="browser-message">Enter a URL above to browse the web</div>
+      <div class="browser-note">Note: Due to security restrictions, most sites will open in a new tab</div>
+    </div>
+    <button onclick="openCurrentInNewTab()" style="margin-top: 0.5rem; width: 100%;">Open Current URL in New Tab</button>
   </div>
 </div>
 
@@ -219,6 +578,7 @@
   <button class="task-item" onclick="lockScreen()">🔒 Lock</button>
 </div>
 
-<script src="index.js"></script>
+<script src="index.js">
+</script>
 </body>
 </html>
