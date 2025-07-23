@@ -8,11 +8,12 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
       overflow: hidden;
+      touch-action: manipulation;
     }
 
     :root[data-theme='light'] {
@@ -23,6 +24,8 @@
       --task-bg: #111827;
       --task-item-bg: #374151;
       --task-item-color: white;
+      --button-bg: #e0e0e0;
+      --button-text: #000;
     }
 
     :root[data-theme='dark'] {
@@ -33,6 +36,8 @@
       --task-bg: #111;
       --task-item-bg: #444;
       --task-item-color: #fff;
+      --button-bg: #444;
+      --button-text: #fff;
     }
 
     .window {
@@ -45,6 +50,16 @@
       z-index: 10;
       overflow: hidden;
       touch-action: none;
+      display: none;
+    }
+
+    .window.maximized {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none;
+      top: 0 !important;
+      left: 0 !important;
+      border-radius: 0;
     }
 
     .header {
@@ -55,6 +70,8 @@
       justify-content: space-between;
       align-items: center;
       cursor: move;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .header .controls {
@@ -68,10 +85,26 @@
       border: none;
       font-size: 1rem;
       cursor: pointer;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .header button:hover {
+      background: rgba(255,255,255,0.2);
     }
 
     .content {
       padding: 1rem;
+      height: calc(100% - 3rem);
+      overflow: auto;
+    }
+
+    .window.maximized .content {
+      height: calc(100% - 3rem) !important;
     }
 
     .taskbar {
@@ -96,6 +129,12 @@
       cursor: pointer;
       font-size: 0.9rem;
       white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .task-item:active {
+      opacity: 0.8;
     }
 
     .toggle-theme {
@@ -108,77 +147,148 @@
       cursor: pointer;
     }
 
+    button {
+      background: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin: 0.25rem 0;
+    }
+
+    button:active {
+      opacity: 0.8;
+    }
+
     textarea {
       width: 100%;
       height: 150px;
       padding: 0.5rem;
       border-radius: 0.5rem;
       font-size: 1rem;
+      background: var(--window-bg);
+      color: var(--text);
+      border: 1px solid var(--button-bg);
+      resize: none;
+      margin-bottom: 0.5rem;
     }
 
     video {
       width: 100%;
       border-radius: 0.5rem;
+      background: black;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: var(--button-bg);
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    @media (max-width: 480px) {
+      .window {
+        width: 95%;
+      }
+      
+      .task-item {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+      }
     }
   </style>
 </head>
 <body>
 
 <!-- Notepad App -->
-<div id="notepad" class="window" style="top: 100px; left: 20px; display: none;">
+<div id="notepad" class="window" style="top: 100px; left: 20px;">
   <div class="header" id="drag-notepad">
     <span>📝 Notepad</span>
-    <button onclick="closeApp('notepad')">×</button>
+    <div class="controls">
+      <button onclick="minimizeApp('notepad')">−</button>
+      <button onclick="maximizeApp('notepad')">□</button>
+      <button onclick="closeApp('notepad')">×</button>
+    </div>
   </div>
   <div class="content">
     <textarea id="notepadText" placeholder="Type here..."></textarea>
     <button onclick="saveNote()">💾 Save</button>
+    <button onclick="loadNote()">📂 Open</button>
   </div>
 </div>
 
 <!-- Camera App -->
-<div id="camera" class="window" style="top: 150px; left: 30px; display: none;">
+<div id="camera" class="window" style="top: 150px; left: 30px;">
   <div class="header" id="drag-camera">
     <span>📸 Camera</span>
-    <button onclick="closeApp('camera')">×</button>
+    <div class="controls">
+      <button onclick="minimizeApp('camera')">−</button>
+      <button onclick="maximizeApp('camera')">□</button>
+      <button onclick="closeApp('camera')">×</button>
+    </div>
   </div>
   <div class="content">
-    <video id="video" autoplay></video>
+    <video id="video" autoplay playsinline></video>
+    <button onclick="takePhoto()">📷 Take Photo</button>
+    <canvas id="photoCanvas" style="display: none;"></canvas>
   </div>
 </div>
 
 <!-- Location App -->
-<div id="location" class="window" style="top: 200px; left: 40px; display: none;">
+<div id="location" class="window" style="top: 200px; left: 40px;">
   <div class="header" id="drag-location">
     <span>📍 Location</span>
-    <button onclick="closeApp('location')">×</button>
+    <div class="controls">
+      <button onclick="minimizeApp('location')">−</button>
+      <button onclick="maximizeApp('location')">□</button>
+      <button onclick="closeApp('location')">×</button>
+    </div>
   </div>
   <div class="content">
     <div id="locationInfo">Getting location...</div>
+    <button onclick="getLocation()">🔄 Refresh</button>
+    <div id="map" style="height: 200px; background: var(--button-bg); margin-top: 0.5rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
+      Map will appear here
+    </div>
   </div>
 </div>
 
 <!-- File Explorer App -->
-<div id="explorer" class="window" style="top: 250px; left: 50px; display: none;">
+<div id="explorer" class="window" style="top: 250px; left: 50px;">
   <div class="header" id="drag-explorer">
     <span>📁 Explorer</span>
-    <button onclick="closeApp('explorer')">×</button>
+    <div class="controls">
+      <button onclick="minimizeApp('explorer')">−</button>
+      <button onclick="maximizeApp('explorer')">□</button>
+      <button onclick="closeApp('explorer')">×</button>
+    </div>
   </div>
   <div class="content">
-    <button onclick="loadFile()">📂 Load File</button>
-    <pre id="fileContent"></pre>
+    <button onclick="loadFile()">📂 Open File</button>
+    <button onclick="saveFile()">💾 Save File</button>
+    <pre id="fileContent">No file loaded</pre>
   </div>
 </div>
 
 <!-- Clipboard Viewer App -->
-<div id="clipboard" class="window" style="top: 300px; left: 60px; display: none;">
+<div id="clipboard" class="window" style="top: 300px; left: 60px;">
   <div class="header" id="drag-clipboard">
     <span>📋 Clipboard</span>
-    <button onclick="closeApp('clipboard')">×</button>
+    <div class="controls">
+      <button onclick="minimizeApp('clipboard')">−</button>
+      <button onclick="maximizeApp('clipboard')">□</button>
+      <button onclick="closeApp('clipboard')">×</button>
+    </div>
   </div>
   <div class="content">
     <button onclick="showClipboard()">📥 Paste</button>
-    <div id="clipboardData"></div>
+    <button onclick="copyToClipboard()">📤 Copy</button>
+    <textarea id="clipboardText" placeholder="Paste or type text here..."></textarea>
+    <div id="clipboardStatus"></div>
   </div>
 </div>
 
@@ -193,30 +303,45 @@
 </div>
 
 <script>
+  // Initialize apps
   const apps = ['notepad', 'camera', 'location', 'explorer', 'clipboard'];
-  apps.forEach(app => makeDraggable(app, `drag-${app}`));
-
-    const apps = ['notepad', 'camera', 'location', 'explorer', 'clipboard'];
   apps.forEach(app => makeDraggable(app));
 
+  // Window management functions
   function openApp(id) {
     const el = document.getElementById(id);
     el.style.display = 'block';
     el.style.zIndex = Date.now();
-    if (id === 'camera') startCamera();
-    if (id === 'location') getLocation();
+    
+    // Bring to front when clicked
+    el.addEventListener('click', function() {
+      this.style.zIndex = Date.now();
+    });
+    
+    // App-specific initialization
+    switch(id) {
+      case 'camera':
+        startCamera();
+        break;
+      case 'location':
+        getLocation();
+        break;
+    }
   }
 
   function closeApp(id) {
     const el = document.getElementById(id);
     el.style.display = 'none';
     el.classList.remove('maximized');
-    el.style.top = '';
-    el.style.left = '';
-    el.style.width = '';
-    el.style.height = '';
-    el.querySelector('.content').style.height = '';
-    el.querySelector('.content').style.overflow = '';
+    
+    // Stop camera when closing
+    if (id === 'camera') {
+      const video = document.getElementById('video');
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+    }
   }
 
   function minimizeApp(id) {
@@ -225,57 +350,96 @@
 
   function maximizeApp(id) {
     const el = document.getElementById(id);
+    el.classList.toggle('maximized');
+    
     if (el.classList.contains('maximized')) {
-      el.classList.remove('maximized');
-      el.style.top = '';
-      el.style.left = '';
-      el.style.width = '';
-      el.style.height = '';
-      el.querySelector('.content').style.height = '';
-      el.querySelector('.content').style.overflow = '';
-    } else {
-      el.classList.add('maximized');
+      // Store original position and size
+      el.dataset.originalTop = el.style.top;
+      el.dataset.originalLeft = el.style.left;
+      el.dataset.originalWidth = el.style.width;
+      
+      // Maximize
       el.style.top = '0';
       el.style.left = '0';
       el.style.width = '100%';
       el.style.height = '100%';
-      el.querySelector('.content').style.height = 'calc(100% - 3rem)';
-      el.querySelector('.content').style.overflow = 'auto';
+    } else {
+      // Restore original position and size
+      el.style.top = el.dataset.originalTop;
+      el.style.left = el.dataset.originalLeft;
+      el.style.width = el.dataset.originalWidth;
+      el.style.height = '';
     }
   }
 
   function makeDraggable(id) {
     const el = document.getElementById(id);
     if (!el) return;
+    
     const header = el.querySelector('.header');
-    let isDragging = false, offsetX, offsetY;
+    let isDragging = false;
+    let offsetX, offsetY;
+    let startX, startY;
 
     header.addEventListener('mousedown', startDrag);
-    header.addEventListener('touchstart', startDrag);
+    header.addEventListener('touchstart', startDrag, { passive: false });
 
     function startDrag(e) {
+      if (el.classList.contains('maximized')) return;
+      
       isDragging = true;
-      offsetX = e.clientX || e.touches[0].clientX;
-      offsetY = e.clientY || e.touches[0].clientY;
+      const clientX = e.clientX || e.touches[0].clientX;
+      const clientY = e.clientY || e.touches[0].clientY;
+      
+      offsetX = clientX - el.getBoundingClientRect().left;
+      offsetY = clientY - el.getBoundingClientRect().top;
+      
+      startX = clientX;
+      startY = clientY;
+      
       document.addEventListener('mousemove', drag);
-      document.addEventListener('touchmove', drag);
+      document.addEventListener('touchmove', drag, { passive: false });
       document.addEventListener('mouseup', stopDrag);
       document.addEventListener('touchend', stopDrag);
+      
+      if (e.type === 'touchstart') {
+        e.preventDefault();
+      }
     }
 
     function drag(e) {
       if (!isDragging) return;
-      const x = e.clientX || e.touches[0].clientX;
-      const y = e.clientY || e.touches[0].clientY;
-      const dx = x - offsetX;
-      const dy = y - offsetY;
-      offsetX = x;
-      offsetY = y;
-      el.style.top = (el.offsetTop + dy) + 'px';
-      el.style.left = (el.offsetLeft + dx) + 'px';
+      
+      const clientX = e.clientX || e.touches[0].clientX;
+      const clientY = e.clientY || e.touches[0].clientY;
+      
+      // Calculate new position
+      let newLeft = clientX - offsetX;
+      let newTop = clientY - offsetY;
+      
+      // Constrain to viewport
+      newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - el.offsetWidth));
+      newTop = Math.max(0, Math.min(newTop, window.innerHeight - el.offsetHeight));
+      
+      el.style.left = newLeft + 'px';
+      el.style.top = newTop + 'px';
+      
+      if (e.type === 'touchmove') {
+        e.preventDefault();
+      }
     }
 
-    function stopDrag() {
+    function stopDrag(e) {
+      if (!isDragging) return;
+      
+      const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+      const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+      
+      // Check if this was a click (minimal movement)
+      if (Math.abs(clientX - startX) < 5 && Math.abs(clientY - startY) < 5) {
+        el.style.zIndex = Date.now();
+      }
+      
       isDragging = false;
       document.removeEventListener('mousemove', drag);
       document.removeEventListener('touchmove', drag);
@@ -283,70 +447,295 @@
       document.removeEventListener('touchend', stopDrag);
     }
   }
-  function openApp(id) {
-    document.getElementById(id).style.display = 'block';
-    if (id === 'camera') startCamera();
-    if (id === 'location') getLocation();
-  }
 
-  function closeApp(id) {
-    document.getElementById(id).style.display = 'none';
-  }
-
+  // Notepad functions
   async function saveNote() {
     const content = document.getElementById('notepadText').value;
     try {
-      const handle = await window.showSaveFilePicker({
-        types: [{ description: 'Text Files', accept: {'text/plain': ['.txt']} }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(content);
-      await writable.close();
+      if (window.showSaveFilePicker) {
+        const handle = await window.showSaveFilePicker({
+          types: [{ description: 'Text Files', accept: {'text/plain': ['.txt']} }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'note.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
-      alert('Save cancelled or not supported.');
+      console.error('Error saving file:', err);
+      alert('Error saving file. Your browser may not support this feature.');
     }
   }
 
-  function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => document.getElementById('video').srcObject = stream)
-      .catch(() => alert("Camera access denied"));
+  async function loadNote() {
+    try {
+      if (window.showOpenFilePicker) {
+        const [fileHandle] = await window.showOpenFilePicker();
+        const file = await fileHandle.getFile();
+        const text = await file.text();
+        document.getElementById('notepadText').value = text;
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.txt,text/plain';
+        input.onchange = e => {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onload = event => {
+            document.getElementById('notepadText').value = event.target.result;
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      }
+    } catch (err) {
+      console.error('Error loading file:', err);
+      if (err.name !== 'AbortError') {
+        alert('Error loading file. Your browser may not support this feature.');
+      }
+    }
   }
 
+  // Camera functions
+  function startCamera() {
+    const video = document.getElementById('video');
+    
+    if (video.srcObject) {
+      return; // Camera already started
+    }
+    
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        console.error('Camera error:', err);
+        video.srcObject = null;
+        document.getElementById('camera').querySelector('.content').innerHTML = `
+          <p>Could not access camera. Please ensure you've granted permission.</p>
+          <button onclick="startCamera()">Try Again</button>
+        `;
+      });
+  }
+
+  function takePhoto() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('photoCanvas');
+    const contentDiv = document.getElementById('camera').querySelector('.content');
+    
+    if (!video.srcObject) return;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Show the photo
+    const imgUrl = canvas.toDataURL('image/png');
+    contentDiv.innerHTML = `
+      <img src="${imgUrl}" style="max-width: 100%; border-radius: 0.5rem;" />
+      <button onclick="savePhoto('${imgUrl}')">💾 Save Photo</button>
+      <button onclick="startCamera()">↩️ Back to Camera</button>
+    `;
+  }
+
+  function savePhoto(imgUrl) {
+    const a = document.createElement('a');
+    a.href = imgUrl;
+    a.download = 'photo.png';
+    a.click();
+  }
+
+  // Location functions
+  function getLocation() {
+    const loc = document.getElementById('locationInfo');
+    loc.textContent = 'Getting location...';
+    
+    if (!navigator.geolocation) {
+      loc.textContent = 'Geolocation is not supported by your browser';
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        loc.innerHTML = `
+          <strong>Latitude:</strong> ${latitude.toFixed(6)}<br>
+          <strong>Longitude:</strong> ${longitude.toFixed(6)}<br>
+          <strong>Accuracy:</strong> ${Math.round(accuracy)} meters
+        `;
+        
+        // Show simple map (using OpenStreetMap iframe)
+        document.getElementById('map').innerHTML = `
+          <iframe 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            scrolling="no" 
+            marginheight="0" 
+            marginwidth="0" 
+            src="https://www.openstreetmap.org/export/embed.html?bbox=${longitude-0.01}%2C${latitude-0.01}%2C${longitude+0.01}%2C${latitude+0.01}&amp;layer=mapnik&amp;marker=${latitude}%2C${longitude}"
+            style="border-radius: 0.5rem;">
+          </iframe>
+        `;
+      },
+      err => {
+        console.error('Geolocation error:', err);
+        loc.textContent = 'Unable to retrieve your location: ' + 
+          (err.message || 'Permission denied or location unavailable');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }
+
+  // File Explorer functions
+  async function loadFile() {
+    try {
+      let file;
+      
+      if (window.showOpenFilePicker) {
+        const [fileHandle] = await window.showOpenFilePicker();
+        file = await fileHandle.getFile();
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = e => {
+          file = e.target.files[0];
+          readFileContent(file);
+        };
+        input.click();
+        return;
+      }
+      
+      readFileContent(file);
+    } catch (err) {
+      console.error('Error loading file:', err);
+      if (err.name !== 'AbortError') {
+        alert('Error loading file. Your browser may not support this feature.');
+      }
+    }
+  }
+
+  function readFileContent(file) {
+    const reader = new FileReader();
+    reader.onload = event => {
+      document.getElementById('fileContent').textContent = event.target.result;
+    };
+    reader.onerror = () => {
+      document.getElementById('fileContent').textContent = 'Error reading file';
+    };
+    reader.readAsText(file);
+  }
+
+  async function saveFile() {
+    const content = document.getElementById('fileContent').textContent;
+    try {
+      if (window.showSaveFilePicker) {
+        const handle = await window.showSaveFilePicker();
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'file.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Error saving file:', err);
+      alert('Error saving file. Your browser may not support this feature.');
+    }
+  }
+
+  // Clipboard functions
+  async function showClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('clipboardText').value = text || 'Clipboard is empty.';
+      document.getElementById('clipboardStatus').textContent = 'Clipboard content loaded';
+      setTimeout(() => {
+        document.getElementById('clipboardStatus').textContent = '';
+      }, 2000);
+    } catch (err) {
+      console.error('Clipboard error:', err);
+      document.getElementById('clipboardStatus').textContent = 'Clipboard access denied. Paste manually.';
+      // Fallback for browsers that don't support clipboard API
+      document.getElementById('clipboardText').value = '';
+      document.getElementById('clipboardText').focus();
+    }
+  }
+
+  async function copyToClipboard() {
+    const text = document.getElementById('clipboardText').value;
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById('clipboardStatus').textContent = 'Copied to clipboard!';
+      setTimeout(() => {
+        document.getElementById('clipboardStatus').textContent = '';
+      }, 2000);
+    } catch (err) {
+      console.error('Copy error:', err);
+      document.getElementById('clipboardStatus').textContent = 'Failed to copy. Your browser may not support this feature.';
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        document.getElementById('clipboardStatus').textContent = 'Copied to clipboard!';
+        setTimeout(() => {
+          document.getElementById('clipboardStatus').textContent = '';
+        }, 2000);
+      } catch (err) {
+        document.getElementById('clipboardStatus').textContent = 'Failed to copy. Please copy manually.';
+      }
+      document.body.removeChild(textarea);
+    }
+  }
+
+  // Theme functions
   function toggleTheme() {
     const html = document.documentElement;
     const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', newTheme);
-  }
-
-  function getLocation() {
-    const loc = document.getElementById('locationInfo');
-    navigator.geolocation.getCurrentPosition(pos => {
-      loc.textContent = `Latitude: ${pos.coords.latitude}, Longitude: ${pos.coords.longitude}`;
-    }, () => {
-      loc.textContent = 'Location access denied';
-    });
-  }
-
-  async function loadFile() {
+    
+    // Save preference to localStorage
     try {
-      const [fileHandle] = await window.showOpenFilePicker();
-      const file = await fileHandle.getFile();
-      const text = await file.text();
-      document.getElementById('fileContent').textContent = text;
-    } catch {
-      alert('Loading file failed or not supported.');
+      localStorage.setItem('theme', newTheme);
+    } catch (e) {
+      console.error('Error saving theme preference:', e);
     }
   }
 
-  async function showClipboard() {
+  // Initialize theme from localStorage
+  function initTheme() {
     try {
-      const text = await navigator.clipboard.readText();
-      document.getElementById('clipboardData').textContent = text || 'Clipboard is empty.';
-    } catch {
-      alert('Clipboard access denied or unsupported.');
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    } catch (e) {
+      console.error('Error loading theme preference:', e);
     }
   }
+
+  // Initialize the app
+  initTheme();
 </script>
 </body>
 </html>
