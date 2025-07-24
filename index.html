@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mobile WebOS Toolkit</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 <body>
 
@@ -15,216 +16,102 @@
   <button onclick="unlockScreen()">Unlock</button>
 </div>
 
-<!-- Notepad App -->
-<div id="notepad" class="window" style="top: 100px; left: 20px;">
-  <div class="header" id="drag-notepad">
-    <span>📝 Notepad</span>
-    <div class="controls">
-      <button id="minimize-notepad">−</button>
-      <button id="maximize-notepad">□</button>
-      <button id="close-notepad">×</button>
+<!-- Windows Container -->
+<div id="windows-container">
+  <!-- Notepad App -->
+  <div id="notepad" class="window" style="top: 100px; left: 20px; display: none;">
+    <div class="header" id="drag-notepad">
+      <span><i class="fas fa-edit"></i> Notepad</span>
+      <div class="controls">
+        <button id="minimize-notepad"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-notepad"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-notepad"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <textarea id="notepadText" placeholder="Type here..."></textarea>
+      <button onclick="saveNote()"><i class="fas fa-save"></i> Save</button>
+      <button onclick="loadNote()"><i class="fas fa-folder-open"></i> Open</button>
     </div>
   </div>
-  <div class="content">
-    <textarea id="notepadText" placeholder="Type here..."></textarea>
-    <button onclick="saveNote()">💾 Save</button>
-    <button onclick="loadNote()">📂 Open</button>
-  </div>
-</div>
 
-<!-- Camera App -->
-<div id="camera" class="window" style="top: 150px; left: 30px;">
-  <div class="header" id="drag-camera">
-    <span>📸 Camera</span>
-    <div class="controls">
-      <button id="minimize-camera">−</button>
-      <button id="maximize-camera">□</button>
-      <button id="close-camera">×</button>
+  <!-- Browser App -->
+  <div id="browser" class="window" style="top: 100px; left: 100px; width: 800px; height: 600px; display: none;">
+    <div class="header" id="drag-browser">
+      <span><i class="fas fa-globe"></i> Browser</span>
+      <div class="controls">
+        <button id="minimize-browser"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-browser"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-browser"><i class="fas fa-times"></i></button>
+      </div>
     </div>
-  </div>
-  <div class="content">
-    <video id="video" autoplay playsinline></video>
-    <button onclick="takePhoto()">📷 Take Photo</button>
-    <canvas id="photoCanvas" style="display: none;"></canvas>
-  </div>
-</div>
-
-<!-- Location App -->
-<div id="location" class="window" style="top: 200px; left: 40px;">
-  <div class="header" id="drag-location">
-    <span>📍 Location</span>
-    <div class="controls">
-      <button id="minimize-location">−</button>
-      <button id="maximize-location">□</button>
-      <button id="close-location">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <div id="locationInfo">Getting location...</div>
-    <button onclick="getLocation()">🔄 Refresh</button>
-    <div id="map" style="height: 200px; background: var(--button-bg); margin-top: 0.5rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
-      Map will appear here
-    </div>
-  </div>
-</div>
-
-<!-- File Explorer App -->
-<div id="explorer" class="window" style="top: 250px; left: 50px;">
-  <div class="header" id="drag-explorer">
-    <span>📁 Explorer</span>
-    <div class="controls">
-      <button id="minimize-explorer">−</button>
-      <button id="maximize-explorer">□</button>
-      <button id="close-explorer">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <button onclick="loadFile()">📂 Open File</button>
-    <button onclick="saveFile()">💾 Save File</button>
-    <pre id="fileContent">No file loaded</pre>
-  </div>
-</div>
-
-<!-- Clipboard Viewer App -->
-<div id="clipboard" class="window" style="top: 300px; left: 60px;">
-  <div class="header" id="drag-clipboard">
-    <span>📋 Clipboard</span>
-    <div class="controls">
-      <button id="minimize-clipboard">−</button>
-      <button id="maximize-clipboard">□</button>
-      <button id="close-clipboard">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <button onclick="showClipboard()">📥 Paste</button>
-    <button onclick="copyToClipboard()">📤 Copy</button>
-    <textarea id="clipboardText" placeholder="Paste or type text here..."></textarea>
-    <div id="clipboardStatus"></div>
-  </div>
-</div>
-
-<!-- Calculator App -->
-<div id="calculator" class="window" style="top: 350px; left: 70px;">
-  <div class="header" id="drag-calculator">
-    <span>🧮 Calculator</span>
-    <div class="controls">
-      <button id="minimize-calculator">−</button>
-      <button id="maximize-calculator">□</button>
-      <button id="close-calculator">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <div class="calculator-display" id="calcDisplay">0</div>
-    <div class="calculator">
-      <button onclick="clearCalculator()">C</button>
-      <button onclick="appendToCalc('(')">(</button>
-      <button onclick="appendToCalc(')')">)</button>
-      <button onclick="appendToCalc('/')">/</button>
-      <button onclick="appendToCalc('7')">7</button>
-      <button onclick="appendToCalc('8')">8</button>
-      <button onclick="appendToCalc('9')">9</button>
-      <button onclick="appendToCalc('*')">×</button>
-      <button onclick="appendToCalc('4')">4</button>
-      <button onclick="appendToCalc('5')">5</button>
-      <button onclick="appendToCalc('6')">6</button>
-      <button onclick="appendToCalc('-')">-</button>
-      <button onclick="appendToCalc('1')">1</button>
-      <button onclick="appendToCalc('2')">2</button>
-      <button onclick="appendToCalc('3')">3</button>
-      <button onclick="appendToCalc('+')">+</button>
-      <button onclick="appendToCalc('0')">0</button>
-      <button onclick="appendToCalc('.')">.</button>
-      <button onclick="backspaceCalc()">⌫</button>
-      <button class="span-2" onclick="calculate()">=</button>
-    </div>
-  </div>
-</div>
-
-<!-- Browser App -->
-<div id="browser" class="window" style="top: 400px; left: 80px;">
-  <div class="header" id="drag-browser">
-    <span>🌐 Browser</span>
-    <div class="controls">
-      <button id="minimize-browser">−</button>
-      <button id="maximize-browser">□</button>
-      <button id="close-browser">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-      <input type="text" id="browserUrl" placeholder="Enter URL (e.g., example.com)" 
-             style="flex-grow: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--button-bg);" />
-      <button onclick="loadUrl()">Go</button>
-    </div>
-    <div id="browserContent" class="browser-content">
-      <div class="browser-message">Enter a URL above to browse the web</div>
-      <div class="browser-note">Note: Due to security restrictions, most sites will open in a new tab</div>
-    </div>
-    <button onclick="openCurrentInNewTab()" style="margin-top: 0.5rem; width: 100%;">Open Current URL in New Tab</button>
-  </div>
-</div>
-
-<!-- Clock App -->
-<div id="clock" class="window" style="top: 450px; left: 90px;">
-  <div class="header" id="drag-clock">
-    <span>🕓 Clock</span>
-    <div class="controls">
-      <button id="minimize-clock">−</button>
-      <button id="maximize-clock">□</button>
-      <button id="close-clock">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <div class="clock-display" id="timeDisplay"></div>
-    <div id="dateDisplay" style="text-align: center; margin-bottom: 1rem;"></div>
-    <h3>Set Alarm</h3>
-    <div class="alarm-form">
-      <input type="time" id="alarmTime" />
-      <input type="text" id="alarmLabel" placeholder="Alarm Label" />
-      <button onclick="setAlarm()">Set Alarm</button>
-    </div>
-    <div class="alarm-list" id="alarmList"></div>
-  </div>
-</div>
-
-<!-- Terminal App -->
-<div id="terminal" class="window" style="top: 500px; left: 100px;">
-  <div class="header" id="drag-terminal">
-    <span>💬 Terminal</span>
-    <div class="controls">
-      <button id="minimize-terminal">−</button>
-      <button id="maximize-terminal">□</button>
-      <button id="close-terminal">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <div class="terminal" id="terminalOutput">
-      WebOS Terminal v1.0<br>
-      Type "help" for commands<br><br>
-    </div>
-    <div class="terminal-input">
-      <input type="text" id="terminalInput" placeholder="Enter command..." onkeypress="handleTerminalKey(event)" />
-      <button onclick="executeCommand()">↵</button>
+    <div class="content">
+      <div class="browser-toolbar">
+        <button onclick="browserBack()"><i class="fas fa-arrow-left"></i></button>
+        <button onclick="browserForward()"><i class="fas fa-arrow-right"></i></button>
+        <button onclick="browserRefresh()"><i class="fas fa-sync-alt"></i></button>
+        <input type="url" id="browserUrl" placeholder="Enter URL (e.g., example.com)" />
+        <button onclick="loadUrl()"><i class="fas fa-arrow-right"></i></button>
+      </div>
+      <div id="browserContent" class="browser-content">
+        <div class="browser-message">
+          <h2>WebOS Browser</h2>
+          <p>Enter a URL above to browse the web</p>
+          <div class="quick-links">
+            <button onclick="loadQuickUrl('https://google.com')"><i class="fab fa-google"></i> Google</button>
+            <button onclick="loadQuickUrl('https://youtube.com')"><i class="fab fa-youtube"></i> YouTube</button>
+            <button onclick="loadQuickUrl('https://github.com')"><i class="fab fa-github"></i> GitHub</button>
+            <button onclick="loadQuickUrl('https://twitter.com')"><i class="fab fa-twitter"></i> Twitter</button>
+            <button onclick="loadQuickUrl('https://facebook.com')"><i class="fab fa-facebook"></i> Facebook</button>
+            <button onclick="loadQuickUrl('https://wikipedia.org')"><i class="fab fa-wikipedia-w"></i> Wikipedia</button>
+          </div>
+        </div>
+        <iframe id="browserFrame" style="display: none;"></iframe>
+      </div>
+      <button onclick="openCurrentInNewTab()" class="new-tab-btn">
+        <i class="fas fa-external-link-alt"></i> Open in New Tab
+      </button>
     </div>
   </div>
 </div>
 
 <!-- Taskbar -->
 <div class="taskbar">
-  <div class="task-item" onclick="openApp('notepad')">📝 Notepad</div>
-  <div class="task-item" onclick="openApp('camera')">📸 Camera</div>
-  <div class="task-item" onclick="openApp('location')">📍 Location</div>
-  <div class="task-item" onclick="openApp('explorer')">📁 Explorer</div>
-  <div class="task-item" onclick="openApp('clipboard')">📋 Clipboard</div>
-  <div class="task-item" onclick="openApp('calculator')">🧮 Calculator</div>
-  <div class="task-item" onclick="openApp('browser')">🌐 Browser</div>
-  <div class="task-item" onclick="openApp('clock')">🕓 Clock</div>
-  <div class="task-item" onclick="openApp('terminal')">💬 Terminal</div>
-  <button class="toggle-theme" onclick="toggleTheme()">🌓 Theme</button>
-  <button class="task-item" onclick="lockScreen()">🔒 Lock</button>
+  <div class="task-item" onclick="openApp('notepad')">
+    <i class="fas fa-edit"></i> Notepad
+  </div>
+  <div class="task-item" onclick="openApp('camera')">
+    <i class="fas fa-camera"></i> Camera
+  </div>
+  <div class="task-item" onclick="openApp('location')">
+    <i class="fas fa-map-marker-alt"></i> Location
+  </div>
+  <div class="task-item" onclick="openApp('explorer')">
+    <i class="fas fa-folder"></i> Explorer
+  </div>
+  <div class="task-item" onclick="openApp('clipboard')">
+    <i class="fas fa-clipboard"></i> Clipboard
+  </div>
+  <div class="task-item" onclick="openApp('calculator')">
+    <i class="fas fa-calculator"></i> Calculator
+  </div>
+  <div class="task-item" onclick="openApp('browser')">
+    <i class="fas fa-globe"></i> Browser
+  </div>
+  <div class="task-item" onclick="openApp('clock')">
+    <i class="fas fa-clock"></i> Clock
+  </div>
+  <div class="task-item" onclick="openApp('terminal')">
+    <i class="fas fa-terminal"></i> Terminal
+  </div>
+  <button class="toggle-theme" onclick="toggleTheme()">
+    <i class="fas fa-moon"></i> Theme
+  </button>
+  <button class="task-item" onclick="lockScreen()">
+    <i class="fas fa-lock"></i> Lock
+  </button>
 </div>
 
-<script src="index.js">
-</script>
+<script src="index.js"></script>
 </body>
 </html>
