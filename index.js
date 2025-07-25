@@ -1491,7 +1491,567 @@ function unlockScreen() {
     document.getElementById('lockPassword').focus();
   }
 }
+// Initialize the OS when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initTheme();
+  initBackground();
+  initWindowControls();
+  initSystemInfo();
+  updateClock();
+  requestNotificationPermission();
+  
+  // Initialize all apps
+  apps.forEach(app => {
+    makeDraggable(app);
+    initWindowControlsForApp(app);
+  });
+  
+  // Set up file drop area
+  setupFileDrop();
+  
+  // Initialize terminal input
+  const terminalInput = document.getElementById('terminalInput');
+  if (terminalInput) {
+    terminalInput.addEventListener('keydown', handleTerminalKey);
+  }
+  
+  // Initialize calculator buttons
+  initCalculator();
+});
 
+// Initialize calculator buttons
+function initCalculator() {
+  const calculator = document.getElementById('calculator');
+  if (!calculator) return;
+  
+  // Number buttons
+  for (let i = 0; i <= 9; i++) {
+    const btn = document.getElementById(`calc-${i}`);
+    if (btn) {
+      btn.addEventListener('click', () => appendToCalc(i.toString()));
+    }
+  }
+  
+  // Operator buttons
+  const operators = ['add', 'subtract', 'multiply', 'divide', 'decimal'];
+  operators.forEach(op => {
+    const btn = document.getElementById(`calc-${op}`);
+    if (btn) {
+      btn.addEventListener('click', () => appendToCalc(op === 'add' ? '+' : 
+                                      op === 'subtract' ? '-' : 
+                                      op === 'multiply' ? '*' : 
+                                      op === 'divide' ? '/' : '.'));
+    }
+  });
+  
+  // Other buttons
+  document.getElementById('calc-clear')?.addEventListener('click', clearCalculator);
+  document.getElementById('calc-backspace')?.addEventListener('click', backspaceCalc);
+  document.getElementById('calc-equals')?.addEventListener('click', calculate);
+}
+
+// Initialize window controls for each app
+function initWindowControlsForApp(app) {
+  const minimizeBtn = document.getElementById(`minimize-${app}`);
+  const maximizeBtn = document.getElementById(`maximize-${app}`);
+  const closeBtn = document.getElementById(`close-${app}`);
+  
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', () => minimizeApp(app));
+    minimizeBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      minimizeApp(app);
+    });
+  }
+  
+  if (maximizeBtn) {
+    maximizeBtn.addEventListener('click', () => maximizeApp(app));
+    maximizeBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      maximizeApp(app);
+    });
+  }
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => closeApp(app));
+    closeBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      closeApp(app);
+    });
+  }
+}
+
+// Window management functions
+function openApp(id) {
+  const el = document.getElementById(id);
+  if (!el) {
+    showNotification(`Application ${id} not found`, 'error');
+    return;
+  }
+  
+  // Check if window is already open
+  if (el.style.display === 'block') {
+    bringToFront(id);
+    return;
+  }
+  
+  el.style.display = 'block';
+  bringToFront(id);
+  
+  // App-specific initialization
+  switch(id) {
+    case 'camera':
+      startCamera();
+      break;
+    case 'location':
+      getLocation();
+      break;
+    case 'clock':
+      updateClock();
+      loadAlarms();
+      break;
+    case 'explorer':
+      updateFileExplorer();
+      break;
+    case 'settings':
+      updateSystemInfo();
+      break;
+    case 'clipboard':
+      showClipboard();
+      break;
+    case 'terminal':
+      document.getElementById('terminalInput').focus();
+      break;
+    case 'calculator':
+      updateCalcDisplay();
+      break;
+  }
+  
+  // Add to active windows
+  if (!activeWindows.includes(id)) {
+    activeWindows.push(id);
+  }
+  
+  // Update taskbar item state
+  updateTaskbarItemState(id, true);
+  
+  showNotification(`${id.charAt(0).toUpperCase() + id.slice(1)} opened`);
+}
+
+// [Previous window management functions remain the same...]
+
+/* ==================== */
+/* LOCATION APP FUNCTIONS */
+/* ==================== */
+
+function getLocation() {
+  const loc = document.getElementById('locationInfo');
+  const map = document.getElementById('map');
+  
+  if (!loc || !map) return;
+  
+  loc.innerHTML = '<p>Getting location...</p>';
+  map.innerHTML = '<p>Loading map...</p>';
+  
+  if (!navigator.geolocation) {
+    loc.innerHTML = '<p>Geolocation is not supported by your browser</p>';
+    showNotification('Geolocation not supported', 'error');
+    return;
+  }
+  
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      const { latitude, longitude, accuracy } = position.coords;
+      loc.innerHTML = `
+        <p><strong>Latitude:</strong> ${latitude.toFixed(6)}</p>
+        <p><strong>Longitude:</strong> ${longitude.toFixed(6)}</p>
+        <p><strong>Accuracy:</strong> ${Math.round(accuracy)} meters</p>
+      `;
+      
+      // Update map iframe
+      map.innerHTML = `
+        <iframe 
+          width="100%" 
+          height="100%" 
+          frameborder="0" 
+          scrolling="no" 
+          src="https://www.openstreetmap.org/export/embed.html?bbox=${longitude-0.01}%2C${latitude-0.01}%2C${longitude+0.01}%2C${latitude+0.01}&amp;layer=mapnik&amp;marker=${latitude}%2C${longitude}"
+          style="border-radius: 0.5rem;">
+        </iframe>
+      `;
+      
+      showNotification('Location retrieved successfully');
+    },
+    error => {
+      let errorMessage = 'Unable to retrieve your location';
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = 'Location access was denied';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = 'Location information is unavailable';
+          break;
+        case error.TIMEOUT:
+          errorMessage = 'The request to get location timed out';
+          break;
+      }
+      loc.innerHTML = `<p>${errorMessage}</p>`;
+      map.innerHTML = '<p>Map unavailable</p>';
+      showNotification(errorMessage, 'error');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+/* ==================== */
+/* CLIPBOARD APP FUNCTIONS */
+/* ==================== */
+
+async function showClipboard() {
+  const clipboardText = document.getElementById('clipboardText');
+  const clipboardStatus = document.getElementById('clipboardStatus');
+  
+  if (!clipboardText || !clipboardStatus) return;
+  
+  try {
+    const text = await navigator.clipboard.readText();
+    clipboardText.value = text || 'Clipboard is empty';
+    clipboardStatus.textContent = 'Clipboard content loaded';
+    setTimeout(() => clipboardStatus.textContent = '', 2000);
+    showNotification('Clipboard content loaded');
+  } catch (err) {
+    console.error('Failed to read clipboard:', err);
+    clipboardText.value = '';
+    clipboardStatus.textContent = 'Clipboard access denied. Paste manually.';
+    showNotification('Clipboard access denied', 'error');
+  }
+}
+
+async function copyToClipboard() {
+  const clipboardText = document.getElementById('clipboardText');
+  const clipboardStatus = document.getElementById('clipboardStatus');
+  
+  if (!clipboardText || !clipboardStatus) return;
+  
+  const text = clipboardText.value;
+  if (!text.trim()) {
+    showNotification('Nothing to copy', 'warning');
+    return;
+  }
+  
+  try {
+    await navigator.clipboard.writeText(text);
+    clipboardStatus.textContent = 'Copied to clipboard!';
+    setTimeout(() => clipboardStatus.textContent = '', 2000);
+    showNotification('Copied to clipboard');
+  } catch (err) {
+    console.error('Failed to write to clipboard:', err);
+    clipboardStatus.textContent = 'Failed to copy. Please try again.';
+    showNotification('Failed to copy to clipboard', 'error');
+  }
+}
+
+/* ==================== */
+/* CALCULATOR APP FUNCTIONS */
+/* ==================== */
+
+function appendToCalc(char) {
+  if (calcValue === '0' && !['.', '+', '-', '*', '/'].includes(char)) {
+    calcValue = char;
+  } else {
+    calcValue += char;
+  }
+  updateCalcDisplay();
+}
+
+function clearCalculator() {
+  calcValue = '0';
+  lastCalculation = null;
+  updateCalcDisplay();
+}
+
+function backspaceCalc() {
+  if (calcValue.length > 1) {
+    calcValue = calcValue.slice(0, -1);
+  } else {
+    calcValue = '0';
+  }
+  updateCalcDisplay();
+}
+
+function calculate() {
+  try {
+    lastCalculation = calcValue;
+    calcValue = eval(calcValue).toString();
+    updateCalcDisplay();
+    showNotification('Calculation complete');
+  } catch (e) {
+    calcValue = 'Error';
+    updateCalcDisplay();
+    showNotification('Calculation error', 'error');
+    setTimeout(() => {
+      calcValue = '0';
+      updateCalcDisplay();
+    }, 1000);
+  }
+}
+
+function updateCalcDisplay() {
+  const display = document.getElementById('calcDisplay');
+  if (display) {
+    display.textContent = calcValue;
+  }
+}
+
+/* ==================== */
+/* CLOCK APP FUNCTIONS */
+/* ==================== */
+
+function updateClock() {
+  const now = new Date();
+  const timeDisplay = document.getElementById('timeDisplay');
+  const dateDisplay = document.getElementById('dateDisplay');
+  const alarmList = document.getElementById('alarmList');
+  
+  if (timeDisplay) {
+    timeDisplay.textContent = now.toLocaleTimeString();
+  }
+  
+  if (dateDisplay) {
+    dateDisplay.textContent = now.toLocaleDateString(undefined, { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  }
+  
+  // Check alarms
+  checkAlarms(now);
+  
+  // Update every second
+  setTimeout(updateClock, 1000);
+}
+
+function setAlarm() {
+  const alarmTime = document.getElementById('alarmTime');
+  const alarmLabel = document.getElementById('alarmLabel');
+  
+  if (!alarmTime || !alarmLabel) return;
+  
+  const time = alarmTime.value;
+  const label = alarmLabel.value || 'Alarm';
+  
+  if (!time) {
+    showNotification('Please set a time for the alarm', 'warning');
+    return;
+  }
+  
+  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  alarms.push({
+    time,
+    label,
+    id: Date.now()
+  });
+  
+  localStorage.setItem('alarms', JSON.stringify(alarms));
+  loadAlarms();
+  
+  // Clear inputs
+  alarmTime.value = '';
+  alarmLabel.value = '';
+  
+  showNotification('Alarm set successfully');
+}
+
+function loadAlarms() {
+  const alarmList = document.getElementById('alarmList');
+  if (!alarmList) return;
+  
+  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  alarmList.innerHTML = '';
+  
+  if (alarms.length === 0) {
+    alarmList.innerHTML = '<p>No alarms set</p>';
+    return;
+  }
+  
+  alarms.forEach(alarm => {
+    const alarmItem = document.createElement('div');
+    alarmItem.className = 'alarm-item';
+    alarmItem.innerHTML = `
+      <span>${alarm.label} - ${alarm.time}</span>
+      <button onclick="deleteAlarm(${alarm.id})">
+        <i class="fas fa-trash"></i>
+      </button>
+    `;
+    alarmList.appendChild(alarmItem);
+  });
+}
+
+function deleteAlarm(id) {
+  let alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  alarms = alarms.filter(alarm => alarm.id !== id);
+  localStorage.setItem('alarms', JSON.stringify(alarms));
+  loadAlarms();
+  showNotification('Alarm deleted');
+}
+
+function checkAlarms(now) {
+  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                     now.getMinutes().toString().padStart(2, '0');
+  
+  alarms.forEach(alarm => {
+    if (alarm.time === currentTime) {
+      triggerAlarm(alarm);
+      // Remove the alarm if it's a one-time alarm
+      deleteAlarm(alarm.id);
+    }
+  });
+}
+
+function triggerAlarm(alarm) {
+  // Show notification
+  showNotification(`ALARM: ${alarm.label} at ${alarm.time}`, 'warning');
+  
+  // Play sound
+  const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+  audio.play().catch(e => console.error('Audio playback failed:', e));
+  
+  // Vibrate if supported
+  if ('vibrate' in navigator) {
+    navigator.vibrate([200, 100, 200, 100, 200]);
+  }
+}
+
+/* ==================== */
+/* TERMINAL APP FUNCTIONS */
+/* ==================== */
+
+function handleTerminalKey(e) {
+  if (e.key === 'Enter') {
+    executeCommand();
+  } else if (e.key === 'ArrowUp') {
+    // Navigate command history up
+    if (commandHistory.length > 0 && commandHistoryIndex < commandHistory.length - 1) {
+      commandHistoryIndex++;
+      document.getElementById('terminalInput').value = 
+        commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+    }
+    e.preventDefault();
+  } else if (e.key === 'ArrowDown') {
+    // Navigate command history down
+    if (commandHistoryIndex > 0) {
+      commandHistoryIndex--;
+      document.getElementById('terminalInput').value = 
+        commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+    } else if (commandHistoryIndex === 0) {
+      commandHistoryIndex--;
+      document.getElementById('terminalInput').value = '';
+    }
+    e.preventDefault();
+  }
+}
+
+function executeCommand() {
+  const input = document.getElementById('terminalInput');
+  const output = document.getElementById('terminalOutput');
+  
+  if (!input || !output) return;
+  
+  const command = input.value.trim();
+  input.value = '';
+  
+  if (!command) return;
+  
+  // Add to command history
+  commandHistory.push(command);
+  commandHistoryIndex = -1;
+  
+  // Display command
+  output.innerHTML += `<span class="prompt">$</span> ${command}<br>`;
+  
+  // Process command
+  const args = command.split(' ');
+  const cmd = args[0].toLowerCase();
+  
+  let response = '';
+  
+  switch(cmd) {
+    case 'help':
+      response = `Available commands:<br>
+        help - Show this help<br>
+        clear - Clear terminal<br>
+        open [app] - Open an app (notepad, camera, etc.)<br>
+        theme [light/dark] - Change theme<br>
+        time - Show current time<br>
+        date - Show current date<br>
+        ls - List available apps<br>
+        bg - Change background (color, image, gradient)<br>`;
+      break;
+      
+    case 'clear':
+      output.innerHTML = '';
+      return;
+      
+    case 'open':
+      if (args.length < 2) {
+        response = 'Usage: open [app]<br>Available apps: ' + apps.join(', ');
+      } else {
+        const app = args[1].toLowerCase();
+        if (apps.includes(app)) {
+          openApp(app);
+          response = `Opening ${app}`;
+        } else {
+          response = `Unknown app: ${app}`;
+        }
+      }
+      break;
+      
+    case 'theme':
+      if (args.length < 2) {
+        response = 'Usage: theme [light/dark/auto]';
+      } else {
+        const theme = args[1].toLowerCase();
+        if (theme === 'light' || theme === 'dark' || theme === 'auto') {
+          setTheme(theme);
+          response = `Theme set to ${theme}`;
+        } else {
+          response = `Invalid theme: ${theme}`;
+        }
+      }
+      break;
+      
+    case 'time':
+      response = new Date().toLocaleTimeString();
+      break;
+      
+    case 'date':
+      response = new Date().toLocaleDateString();
+      break;
+      
+    case 'ls':
+      response = 'Available apps: ' + apps.join(', ');
+      break;
+      
+    case 'bg':
+      openModal('bgSettings');
+      response = 'Opening background settings';
+      break;
+      
+    default:
+      response = `Command not found: ${cmd}<br>Type "help" for available commands`;
+  }
+  
+  // Display response
+  if (response) {
+    output.innerHTML += response + '<br>';
+  }
+  
+  // Scroll to bottom
+  output.scrollTop = output.scrollHeight;
+}
 // Initialize window controls
 function initWindowControls() {
   // Make sure all windows can be brought to front when clicked
