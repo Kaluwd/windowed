@@ -176,6 +176,129 @@
     </div>
   </div>
 
+  <!-- Location App -->
+  <div id="location" class="window" style="top: 120px; left: 150px; width: 500px; height: 400px; display: none;">
+    <div class="header" id="drag-location">
+      <span><i class="fas fa-map-marker-alt"></i> Location</span>
+      <div class="controls">
+        <button id="minimize-location"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-location"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-location"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="locationInfo" style="margin-bottom: 15px;">Click "Get Location" to start</div>
+      <div id="map" style="width: 100%; height: 300px; background: #f0f0f0; border-radius: 0.5rem;"></div>
+      <button onclick="getLocation()" style="margin-top: 10px;">
+        <i class="fas fa-location-arrow"></i> Get Location
+      </button>
+    </div>
+  </div>
+
+  <!-- Clipboard App -->
+  <div id="clipboard" class="window" style="top: 130px; left: 180px; width: 450px; height: 300px; display: none;">
+    <div class="header" id="drag-clipboard">
+      <span><i class="fas fa-clipboard"></i> Clipboard</span>
+      <div class="controls">
+        <button id="minimize-clipboard"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-clipboard"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-clipboard"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <textarea id="clipboardText" style="width: 100%; height: 180px; margin-bottom: 10px;"></textarea>
+      <div id="clipboardStatus" style="margin-bottom: 10px; color: #666;"></div>
+      <div class="button-group">
+        <button onclick="copyToClipboard()"><i class="fas fa-copy"></i> Copy</button>
+        <button onclick="showClipboard()"><i class="fas fa-paste"></i> Paste</button>
+        <button onclick="document.getElementById('clipboardText').value = ''"><i class="fas fa-trash"></i> Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calculator App -->
+  <div id="calculator" class="window" style="top: 140px; left: 210px; width: 300px; height: 400px; display: none;">
+    <div class="header" id="drag-calculator">
+      <span><i class="fas fa-calculator"></i> Calculator</span>
+      <div class="controls">
+        <button id="minimize-calculator"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-calculator"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-calculator"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="calcDisplay" style="width: 100%; padding: 10px; background: #f8f8f8; text-align: right; font-size: 24px; margin-bottom: 10px; border-radius: 4px;">0</div>
+      <div class="calc-buttons">
+        <button onclick="clearCalculator()">C</button>
+        <button onclick="backspaceCalc()">⌫</button>
+        <button onclick="useLastResult()">MR</button>
+        <button onclick="appendToCalc('/')">/</button>
+        
+        <button onclick="appendToCalc('7')">7</button>
+        <button onclick="appendToCalc('8')">8</button>
+        <button onclick="appendToCalc('9')">9</button>
+        <button onclick="appendToCalc('*')">×</button>
+        
+        <button onclick="appendToCalc('4')">4</button>
+        <button onclick="appendToCalc('5')">5</button>
+        <button onclick="appendToCalc('6')">6</button>
+        <button onclick="appendToCalc('-')">-</button>
+        
+        <button onclick="appendToCalc('1')">1</button>
+        <button onclick="appendToCalc('2')">2</button>
+        <button onclick="appendToCalc('3')">3</button>
+        <button onclick="appendToCalc('+')">+</button>
+        
+        <button onclick="appendToCalc('0')" style="grid-column: span 2;">0</button>
+        <button onclick="appendToCalc('.')">.</button>
+        <button onclick="calculate()" style="background: #4CAF50; color: white;">=</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clock App -->
+  <div id="clock" class="window" style="top: 150px; left: 240px; width: 300px; height: 300px; display: none;">
+    <div class="header" id="drag-clock">
+      <span><i class="fas fa-clock"></i> Clock</span>
+      <div class="controls">
+        <button id="minimize-clock"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-clock"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-clock"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content" style="text-align: center;">
+      <div id="timeDisplay" style="font-size: 2.5rem; margin: 20px 0;"></div>
+      <div id="dateDisplay" style="margin-bottom: 20px;"></div>
+      
+      <div class="alarm-section">
+        <h3>Alarm</h3>
+        <input type="time" id="alarmTime" style="margin-right: 10px;">
+        <input type="text" id="alarmLabel" placeholder="Alarm label" style="margin-right: 10px;">
+        <button onclick="setAlarm()"><i class="fas fa-plus"></i> Set</button>
+        <div id="alarmList" style="margin-top: 15px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal App -->
+  <div id="terminal" class="window" style="top: 160px; left: 270px; width: 600px; height: 400px; display: none;">
+    <div class="header" id="drag-terminal">
+      <span><i class="fas fa-terminal"></i> Terminal</span>
+      <div class="controls">
+        <button id="minimize-terminal"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-terminal"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-terminal"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="terminalOutput" style="height: calc(100% - 40px); overflow-y: auto; background: #1e1e1e; color: #f0f0f0; padding: 10px; font-family: monospace; white-space: pre-wrap;"></div>
+      <div style="display: flex; margin-top: 5px;">
+        <span style="color: #4CAF50; margin-right: 5px;">$</span>
+        <input type="text" id="terminalInput" style="flex-grow: 1; background: #1e1e1e; color: #f0f0f0; border: none; font-family: monospace; padding: 5px;" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
   <!-- Settings App -->
   <div id="settings" class="window" style="top: 100px; left: 200px; width: 600px; height: 500px; display: none;">
     <div class="header" id="drag-settings">
