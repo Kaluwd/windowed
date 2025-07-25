@@ -7,6 +7,14 @@ const apps = [
 // Track active windows and their z-index
 let activeWindows = [];
 let maxZIndex = 10;
+let currentBrowserUrl = '';
+let browserHistory = [];
+let historyIndex = -1;
+let currentStream = null;
+let calcValue = '0';
+let lastCalculation = null;
+let commandHistory = [];
+let commandHistoryIndex = -1;
 
 // Initialize the OS when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -25,6 +33,12 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Set up file drop area
   setupFileDrop();
+  
+  // Initialize terminal input
+  const terminalInput = document.getElementById('terminalInput');
+  if (terminalInput) {
+    terminalInput.addEventListener('keydown', handleTerminalKey);
+  }
 });
 
 // Initialize window controls for each app
@@ -93,6 +107,12 @@ function openApp(id) {
     case 'settings':
       updateSystemInfo();
       break;
+    case 'clipboard':
+      showClipboard();
+      break;
+    case 'terminal':
+      document.getElementById('terminalInput').focus();
+      break;
   }
   
   // Add to active windows
@@ -100,7 +120,23 @@ function openApp(id) {
     activeWindows.push(id);
   }
   
+  // Update taskbar item state
+  updateTaskbarItemState(id, true);
+  
   showNotification(`${id.charAt(0).toUpperCase() + id.slice(1)} opened`);
+}
+
+function updateTaskbarItemState(appId, isActive) {
+  const taskItems = document.querySelectorAll('.task-item');
+  taskItems.forEach(item => {
+    if (item.onclick && item.onclick.toString().includes(appId)) {
+      if (isActive) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    }
+  });
 }
 
 function bringToFront(id) {
@@ -117,6 +153,9 @@ function closeApp(id) {
   // Remove from active windows
   activeWindows = activeWindows.filter(app => app !== id);
   
+  // Update taskbar item state
+  updateTaskbarItemState(id, false);
+  
   // App-specific cleanup
   switch(id) {
     case 'camera':
@@ -128,6 +167,7 @@ function closeApp(id) {
 function minimizeApp(id) {
   const el = document.getElementById(id);
   el.style.display = 'none';
+  updateTaskbarItemState(id, false);
 }
 
 function maximizeApp(id) {
@@ -481,8 +521,6 @@ function updateFileExplorer() {
 }
 
 // Camera functions
-let currentStream = null;
-
 async function startCamera() {
   const video = document.getElementById('video');
   if (!video) return;
@@ -593,10 +631,6 @@ async function switchCamera() {
 }
 
 // Browser functions
-let currentBrowserUrl = '';
-let browserHistory = [];
-let historyIndex = -1;
-
 function loadUrl() {
   const urlInput = document.getElementById('browserUrl').value.trim();
   if (!urlInput) return;
@@ -1263,9 +1297,6 @@ async function copyToClipboard() {
 }
 
 // Calculator functions
-let calcValue = '0';
-let lastCalculation = null;
-
 function appendToCalc(char) {
   if (calcValue === '0' && char !== '.') {
     calcValue = char;
@@ -1320,26 +1351,23 @@ function useLastResult() {
 }
 
 // Terminal functions
-let commandHistory = [];
-let historyIndex = -1;
-
 function handleTerminalKey(e) {
   if (e.key === 'Enter') {
     executeCommand();
   } else if (e.key === 'ArrowUp') {
     // Navigate command history
-    if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
-      historyIndex++;
-      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - historyIndex];
+    if (commandHistory.length > 0 && commandHistoryIndex < commandHistory.length - 1) {
+      commandHistoryIndex++;
+      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - commandHistoryIndex];
     }
     e.preventDefault();
   } else if (e.key === 'ArrowDown') {
     // Navigate command history
-    if (historyIndex > 0) {
-      historyIndex--;
-      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - historyIndex];
-    } else if (historyIndex === 0) {
-      historyIndex--;
+    if (commandHistoryIndex > 0) {
+      commandHistoryIndex--;
+      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+    } else if (commandHistoryIndex === 0) {
+      commandHistoryIndex--;
       document.getElementById('terminalInput').value = '';
     }
     e.preventDefault();
@@ -1355,7 +1383,7 @@ function executeCommand() {
   
   // Add to command history
   commandHistory.push(command);
-  historyIndex = -1;
+  commandHistoryIndex = -1;
   
   const output = document.getElementById('terminalOutput');
   output.innerHTML += `<span class="prompt">$</span> ${command}<br>`;
@@ -1434,6 +1462,7 @@ function lockScreen() {
   // Disable all apps
   apps.forEach(app => {
     document.getElementById(app).style.display = 'none';
+    updateTaskbarItemState(app, false);
   });
   
   activeWindows = [];
