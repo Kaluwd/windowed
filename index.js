@@ -1,14 +1,11 @@
-// Initialize apps with all available applications
 const apps = [
   'notepad', 'camera', 'location', 'explorer', 'clipboard',
   'calculator', 'browser', 'clock', 'terminal', 'settings'
 ];
 
-// Track active windows and their z-index
 let activeWindows = [];
 let maxZIndex = 10;
 
-// Initialize the OS when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
   initTheme();
   initBackground();
@@ -16,18 +13,13 @@ document.addEventListener('DOMContentLoaded', function() {
   initSystemInfo();
   updateClock();
   requestNotificationPermission();
-  
-  // Initialize all apps
   apps.forEach(app => {
     makeDraggable(app);
     initWindowControlsForApp(app);
   });
-  
-  // Set up file drop area
   setupFileDrop();
 });
 
-// Initialize window controls for each app
 function initWindowControlsForApp(app) {
   const minimizeBtn = document.getElementById(`minimize-${app}`);
   const maximizeBtn = document.getElementById(`maximize-${app}`);
@@ -58,7 +50,6 @@ function initWindowControlsForApp(app) {
   }
 }
 
-// Window management functions
 function openApp(id) {
   const el = document.getElementById(id);
   if (!el) {
@@ -66,7 +57,6 @@ function openApp(id) {
     return;
   }
   
-  // Check if window is already open
   if (el.style.display === 'block') {
     bringToFront(id);
     return;
@@ -75,7 +65,6 @@ function openApp(id) {
   el.style.display = 'block';
   bringToFront(id);
   
-  // App-specific initialization
   switch(id) {
     case 'camera':
       startCamera();
@@ -93,9 +82,17 @@ function openApp(id) {
     case 'settings':
       updateSystemInfo();
       break;
+    case 'clipboard':
+      showClipboard();
+      break;
+    case 'calculator':
+      updateCalcDisplay();
+      break;
+    case 'terminal':
+      document.getElementById('terminalInput').focus();
+      break;
   }
   
-  // Add to active windows
   if (!activeWindows.includes(id)) {
     activeWindows.push(id);
   }
@@ -114,10 +111,8 @@ function closeApp(id) {
   el.style.display = 'none';
   el.classList.remove('maximized');
   
-  // Remove from active windows
   activeWindows = activeWindows.filter(app => app !== id);
   
-  // App-specific cleanup
   switch(id) {
     case 'camera':
       stopCamera();
@@ -135,19 +130,16 @@ function maximizeApp(id) {
   el.classList.toggle('maximized');
   
   if (el.classList.contains('maximized')) {
-    // Store original position and size
     el.dataset.originalTop = el.style.top;
     el.dataset.originalLeft = el.style.left;
     el.dataset.originalWidth = el.style.width;
     el.dataset.originalHeight = el.style.height;
     
-    // Maximize
     el.style.top = '0';
     el.style.left = '0';
     el.style.width = '100%';
-    el.style.height = 'calc(100vh - 48px)'; // Account for taskbar
+    el.style.height = 'calc(100vh - 48px)';
   } else {
-    // Restore original position and size
     el.style.top = el.dataset.originalTop || '100px';
     el.style.left = el.dataset.originalLeft || '100px';
     el.style.width = el.dataset.originalWidth || '800px';
@@ -157,7 +149,6 @@ function maximizeApp(id) {
   bringToFront(id);
 }
 
-// Draggable window functionality
 function makeDraggable(id) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -203,11 +194,9 @@ function makeDraggable(id) {
     const clientX = e.clientX || e.touches[0].clientX;
     const clientY = e.clientY || e.touches[0].clientY;
     
-    // Calculate new position
     let newLeft = clientX - offsetX;
     let newTop = clientY - offsetY;
     
-    // Constrain to viewport
     newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - el.offsetWidth));
     newTop = Math.max(0, Math.min(newTop, window.innerHeight - el.offsetHeight));
     
@@ -225,20 +214,19 @@ function makeDraggable(id) {
     const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
     const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
     
-    // Check if this was a click (minimal movement)
     if (Math.abs(clientX - startX) < 5 && Math.abs(clientY - startY) < 5) {
       bringToFront(id);
     }
     
     isDragging = false;
     document.removeEventListener('mousemove', drag);
+    document.remove SDV: System.DataView
     document.removeEventListener('touchmove', drag);
     document.removeEventListener('mouseup', stopDrag);
     document.removeEventListener('touchend', stopDrag);
   }
 }
 
-// Notepad functions
 async function saveNote() {
   const content = document.getElementById('notepadText').value;
   try {
@@ -251,7 +239,6 @@ async function saveNote() {
       await writable.close();
       showNotification('Note saved successfully');
     } else {
-      // Fallback for browsers that don't support File System Access API
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -275,7 +262,228 @@ async function loadNote() {
       const [fileHandle] = await window.showOpenFilePicker();
       file = await fileHandle.getFile();
     } else {
-      // Fallback for browsers that don't support File System Access API
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt,text/plain';
+      
+      return new Promise((resolve) => {
+        input.onchange = async e => {
+ຢੂစား: System.DataView
+          file = e.target.files[0];
+          const text = await readFileContent(file);
+          document.getElementById('notepadText').value = text;
+          showNotification('Note loaded successfully');
+          resolve();
+        };
+        input.click();
+      });
+    }
+    
+    const text = await file.text();
+    document.getElementById('notepadText').value = text;
+    showNotification('Note loaded successfully');
+  } catch (err) {
+    console.error('Error loading file:', err);
+    if (err.name !== 'AbortError') {
+      showNotification('Error loading file', 'error');
+    }
+  }
+}
+
+function clearNote() {
+  document.getElementById('notepadText').value = '';
+}
+
+function setupFileDrop() {
+  const dropArea = document.getElementById('fileDropArea');
+  if (!dropArea) return;
+
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addElementById('terminalInput').focus();
+      break;
+  }
+  
+  if (!activeWindows.includes(id)) {
+    activeWindows.push(id);
+  }
+  
+  showNotification(`${id.charAt(0).toUpperCase() + id.slice(1)} opened`);
+}
+
+function bringToFront(id) {
+  const el = document.getElementById(id);
+  maxZIndex++;
+  el.style.zIndex = maxZIndex;
+}
+
+function closeApp(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'none';
+  el.classList.remove('maximized');
+  
+  activeWindows = activeWindows.filter(app => app !== id);
+  
+  switch(id) {
+    case 'camera':
+      stopCamera();
+      break;
+  }
+}
+
+function minimizeApp(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'none';
+}
+
+function maximizeApp(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('maximized');
+  
+  if (el.classList.contains('maximized')) {
+    el.dataset.originalTop = el.style.top;
+    el.dataset.originalLeft = el.style.left;
+    el.dataset.originalWidth = el.style.width;
+    el.dataset.originalHeight = el.style.height;
+    
+    el.style.top = '0';
+    el.style.left = '0';
+    el.style.width = '100%';
+    el.style.height = 'calc(100vh - 48px)';
+  } else {
+    el.style.top = el.dataset.originalTop || '100px';
+    el.style.left = el.dataset.originalLeft || '100px';
+    el.style.width = el.dataset.originalWidth || '800px';
+    el.style.height = el.dataset.originalHeight || '600px';
+  }
+  
+  bringToFront(id);
+}
+
+function makeDraggable(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  
+  const header = el.querySelector('.header');
+  if (!header) return;
+  
+  let isDragging = false;
+  let offsetX, offsetY;
+  let startX, startY;
+
+  header.addEventListener('mousedown', startDrag);
+  header.addEventListener('touchstart', startDrag, { passive: false });
+
+  function startDrag(e) {
+    if (el.classList.contains('maximized')) return;
+    
+    isDragging = true;
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    
+    offsetX = clientX - el.getBoundingClientRect().left;
+    offsetY = clientY - el.getBoundingClientRect().top;
+    
+    startX = clientX;
+    startY = clientY;
+    
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchend', stopDrag);
+    
+    if (e.type === 'touchstart') {
+      e.preventDefault();
+    }
+    
+    bringToFront(id);
+  }
+
+  function drag(e) {
+    if (!isDragging) return;
+    
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    
+    let newLeft = clientX - offsetX;
+    let newTop = clientY - offsetY;
+    
+    newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - el.offsetWidth));
+    newTop = Math.max(0, Math.min(newTop, window.innerHeight - el.offsetHeight));
+    
+    el.style.left = newLeft + 'px';
+    el.style.top = newTop + 'px';
+    
+    if (e.type === 'touchmove') {
+      e.preventDefault();
+    }
+  }
+
+  function stopDrag(e) {
+    if (!isDragging) return;
+    
+    const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+    const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+    
+    if (Math.abs(clientX - startX) < 5 && Math.abs(clientY - startY) < 5) {
+      bringToFront(id);
+    }
+    
+    isDragging = false;
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('touchmove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('touchend', stopDrag);
+  }
+}
+
+async function saveNote() {
+  const content = document.getElementById('notepadText').value;
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        types: [{ description: 'Text Files', accept: {'text/plain': ['.txt']} }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      showNotification('Note saved successfully');
+    } else {
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'note.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      showNotification('Note downloaded as text file');
+    }
+  } catch (err) {
+    console.error('Error saving file:', err);
+    showNotification('Error saving file', 'error');
+  }
+}
+
+async function loadNote() {
+  try {
+    let file;
+    
+    if (window.showOpenFilePicker) {
+      const [fileHandle] = await window.showOpenFilePicker();
+      file = await fileHandle.getFile();
+    } else {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.txt,text/plain';
@@ -307,7 +515,6 @@ function clearNote() {
   document.getElementById('notepadText').value = '';
 }
 
-// File Explorer functions
 function setupFileDrop() {
   const dropArea = document.getElementById('fileDropArea');
   if (!dropArea) return;
@@ -359,7 +566,6 @@ async function loadFile() {
       const [fileHandle] = await window.showOpenFilePicker();
       file = await fileHandle.getFile();
     } else {
-      // Fallback for browsers that don't support File System Access API
       const input = document.createElement('input');
       input.type = 'file';
       
@@ -399,7 +605,6 @@ async function saveFile() {
       await writable.close();
       showNotification('File saved successfully');
     } else {
-      // Fallback for browsers that don't support File System Access API
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -475,12 +680,10 @@ function formatFileSize(bytes) {
 }
 
 function updateFileExplorer() {
-  // Could be enhanced to show directory structure
   document.getElementById('fileContent').innerHTML = '<p class="placeholder">Select or drop a file here</p>';
   document.getElementById('fileInfo').innerHTML = '<p>No file selected</p>';
 }
 
-// Camera functions
 let currentStream = null;
 
 async function startCamera() {
@@ -488,7 +691,7 @@ async function startCamera() {
   if (!video) return;
   
   if (currentStream) {
-    return; // Camera already started
+    return;
   }
   
   try {
@@ -541,7 +744,6 @@ function takePhoto() {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
-  // Show the photo
   const imgUrl = canvas.toDataURL('image/png');
   contentDiv.innerHTML = `
     <img src="${imgUrl}" style="max-width: 100%; border-radius: 0.5rem;" />
@@ -570,7 +772,6 @@ async function savePhoto(imgUrl) {
 async function switchCamera() {
   stopCamera();
   
-  // Toggle between front and back camera
   const video = document.getElementById('video');
   const constraints = {
     video: {
@@ -592,7 +793,6 @@ async function switchCamera() {
   }
 }
 
-// Browser functions
 let currentBrowserUrl = '';
 let browserHistory = [];
 let historyIndex = -1;
@@ -605,22 +805,18 @@ function loadUrl() {
   browserContent.innerHTML = '<div class="browser-message">Loading...</div>';
   
   try {
-    // Format URL properly
     let url = urlInput;
     if (!url.match(/^https?:\/\//)) {
       url = 'https://' + url;
     }
     
-    // Validate URL
     new URL(url);
     currentBrowserUrl = url;
     
-    // Add to history
     browserHistory.push(url);
     historyIndex = browserHistory.length - 1;
     updateBrowserControls();
     
-    // Try to embed in iframe (will fail for most sites due to security)
     tryEmbedUrl(url);
   } catch (e) {
     showBrowserError("Invalid URL format. Please include http:// or https://");
@@ -635,25 +831,20 @@ function loadQuickUrl(url) {
 function tryEmbedUrl(url) {
   const browserContent = document.getElementById('browserContent');
   
-  // Create iframe
   const iframe = document.createElement('iframe');
   iframe.src = url;
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';
   
-  // Handle iframe events
   iframe.onload = function() {
-    // This may not trigger for cross-origin iframes
     setTimeout(() => {
       try {
-        // Try accessing iframe content (will throw if cross-origin)
         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) {
           throw new Error("Cross-origin frame");
         }
       } catch (e) {
-        // If we can't access the iframe content, show fallback
         showBrowserFallback(url);
       }
     }, 1000);
@@ -663,7 +854,6 @@ function tryEmbedUrl(url) {
     showBrowserFallback(url);
   };
   
-  // Clear and add iframe
   browserContent.innerHTML = '';
   browserContent.appendChild(iframe);
 }
@@ -731,19 +921,15 @@ function openCurrentInNewTab() {
   }
 }
 
-// Settings functions
 function openSettingsTab(tabName) {
-  // Hide all tab contents
   document.querySelectorAll('.settings-tab-content').forEach(tab => {
     tab.style.display = 'none';
   });
   
-  // Deactivate all tab buttons
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.remove('active');
   });
   
-  // Show selected tab and activate its button
   document.getElementById(`${tabName}-tab`).style.display = 'block';
   document.querySelector(`.tab-btn[onclick="openSettingsTab('${tabName}')"]`).classList.add('active');
 }
@@ -770,7 +956,6 @@ function initTheme() {
   setTheme(savedTheme);
 }
 
-// Background customization
 function initBackground() {
   const savedBg = localStorage.getItem('background');
   if (savedBg) {
@@ -811,7 +996,6 @@ function setBgFromUrl() {
   const url = document.getElementById('bgImageUrl').value.trim();
   if (!url) return;
   
-  // Validate URL
   try {
     new URL(url);
   } catch (e) {
@@ -942,31 +1126,29 @@ function changeTransparencyLevel() {
   });
 }
 
-// System information
 function initSystemInfo() {
   if (!document.getElementById('systemInfo')) return;
   
-  // Browser info
   const browserInfo = document.getElementById('browserInfo');
   if (browserInfo) {
     browserInfo.textContent = getBrowserInfo();
   }
   
-  // Screen info
   const screenInfo = document.getElementById('screenInfo');
   if (screenInfo) {
     screenInfo.textContent = `${window.screen.width}x${window.screen.height}`;
   }
   
-  // Memory info (if supported)
   const memoryInfo = document.getElementById('memoryInfo');
   if (memoryInfo && navigator.deviceMemory) {
     memoryInfo.textContent = `${navigator.deviceMemory} GB`;
+  } else if (memoryInfo) {
+    memoryInfo.textContent = 'Not available';
   }
 }
 
 function updateSystemInfo() {
-  initSystemInfo(); // Refresh info when settings app is opened
+  initSystemInfo();
 }
 
 function getBrowserInfo() {
@@ -990,7 +1172,6 @@ function getBrowserInfo() {
   return `${browserName} (${navigator.platform})`;
 }
 
-// Permission requests
 function requestCameraPermission() {
   navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => {
@@ -1023,7 +1204,6 @@ function requestNotificationPermission() {
   }
 }
 
-// Notification system
 function showNotification(message, type = 'info') {
   const container = document.getElementById('notification-container');
   if (!container) return;
@@ -1034,14 +1214,12 @@ function showNotification(message, type = 'info') {
   
   container.appendChild(notification);
   
-  // Auto-remove after delay
   setTimeout(() => {
     notification.classList.add('fade-out');
     setTimeout(() => notification.remove(), 300);
   }, 3000);
 }
 
-// Clock and Alarm functions
 function updateClock() {
   const now = new Date();
   const timeStr = now.toLocaleTimeString();
@@ -1058,7 +1236,6 @@ function updateClock() {
   if (timeDisplay) timeDisplay.textContent = timeStr;
   if (dateDisplay) dateDisplay.textContent = dateStr;
   
-  // Check alarms
   checkAlarms(now);
   
   setTimeout(updateClock, 1000);
@@ -1083,7 +1260,6 @@ function setAlarm() {
   localStorage.setItem('alarms', JSON.stringify(alarms));
   loadAlarms();
   
-  // Clear inputs
   document.getElementById('alarmTime').value = '';
   document.getElementById('alarmLabel').value = '';
   
@@ -1129,9 +1305,7 @@ function checkAlarms(now) {
   
   alarms.forEach(alarm => {
     if (alarm.time === currentTime) {
-      // Trigger alarm
       triggerAlarm(alarm);
-      // Remove the alarm if it's a one-time alarm
       deleteAlarm(alarm.id);
     }
   });
@@ -1152,14 +1326,12 @@ function triggerAlarm(alarm) {
     });
   }
   
-  // Play sound
   const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
   audio.play();
   
   showNotification(`ALARM: ${alarm.label} at ${alarm.time}`, 'warning');
 }
 
-// Location functions
 function getLocation() {
   const loc = document.getElementById('locationInfo');
   if (!loc) return;
@@ -1181,7 +1353,6 @@ function getLocation() {
         <strong>Accuracy:</strong> ${Math.round(accuracy)} meters
       `;
       
-      // Show simple map (using OpenStreetMap iframe)
       const map = document.getElementById('map');
       if (map) {
         map.innerHTML = `
@@ -1192,7 +1363,7 @@ function getLocation() {
             scrolling="no" 
             marginheight="0" 
             marginwidth="0" 
-            src="https://www.openstreetmap.org/export/embed.html?bbox=${longitude-0.01}%2C${latitude-0.01}%2C${longitude+0.01}%2C${latitude+0.01}&amp;layer=mapnik&amp;marker=${latitude}%2C${longitude}"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=${longitude-0.01}%2C${latitude-0.01}%2C${longitude+0.01}%2C${latitude+0.01}&layer=mapnik&marker=${latitude}%2C${longitude}"
             style="border-radius: 0.5rem;">
           </iframe>
         `;
@@ -1210,7 +1381,6 @@ function getLocation() {
   );
 }
 
-// Clipboard functions
 async function showClipboard() {
   try {
     const text = await navigator.clipboard.readText();
@@ -1223,7 +1393,6 @@ async function showClipboard() {
   } catch (err) {
     console.error('Clipboard error:', err);
     document.getElementById('clipboardStatus').textContent = 'Clipboard access denied. Paste manually.';
-    // Fallback for browsers that don't support clipboard API
     document.getElementById('clipboardText').value = '';
     document.getElementById('clipboardText').focus();
     showNotification('Clipboard access denied', 'error');
@@ -1242,7 +1411,6 @@ async function copyToClipboard() {
   } catch (err) {
     console.error('Copy error:', err);
     document.getElementById('clipboardStatus').textContent = 'Failed to copy. Your browser may not support this feature.';
-    // Fallback for older browsers
     const textarea = document.createElement('textarea');
     textarea.value = text;
     document.body.appendChild(textarea);
@@ -1262,7 +1430,6 @@ async function copyToClipboard() {
   }
 }
 
-// Calculator functions
 let calcValue = '0';
 let lastCalculation = null;
 
@@ -1319,7 +1486,6 @@ function useLastResult() {
   }
 }
 
-// Terminal functions
 let commandHistory = [];
 let historyIndex = -1;
 
@@ -1327,14 +1493,12 @@ function handleTerminalKey(e) {
   if (e.key === 'Enter') {
     executeCommand();
   } else if (e.key === 'ArrowUp') {
-    // Navigate command history
     if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
       historyIndex++;
       document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - historyIndex];
     }
     e.preventDefault();
   } else if (e.key === 'ArrowDown') {
-    // Navigate command history
     if (historyIndex > 0) {
       historyIndex--;
       document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - historyIndex];
@@ -1353,14 +1517,12 @@ function executeCommand() {
   
   if (!command) return;
   
-  // Add to command history
   commandHistory.push(command);
   historyIndex = -1;
   
   const output = document.getElementById('terminalOutput');
   output.innerHTML += `<span class="prompt">$</span> ${command}<br>`;
   
-  // Process command
   const args = command.split(' ');
   const cmd = args[0].toLowerCase();
   
@@ -1405,69 +1567,4 @@ function executeCommand() {
         }
       }
       break;
-    case 'time':
-      output.innerHTML += new Date().toLocaleTimeString() + '<br><br>';
-      break;
-    case 'date':
-      output.innerHTML += new Date().toLocaleDateString() + '<br><br>';
-      break;
-    case 'ls':
-      output.innerHTML += 'Available apps: ' + apps.join(', ') + '<br><br>';
-      break;
-    case 'bg':
-      openModal('bgSettings');
-      output.innerHTML += 'Opening background settings<br><br>';
-      break;
-    default:
-      output.innerHTML += `Command not found: ${cmd}<br>Type "help" for available commands<br><br>`;
-  }
-  
-  // Scroll to bottom
-  output.scrollTop = output.scrollHeight;
-}
-
-// Lock screen functions
-function lockScreen() {
-  document.getElementById('lockScreen').style.display = 'flex';
-  bringToFront('lockScreen');
-  
-  // Disable all apps
-  apps.forEach(app => {
-    document.getElementById(app).style.display = 'none';
-  });
-  
-  activeWindows = [];
-}
-
-function unlockScreen() {
-  const password = document.getElementById('lockPassword').value;
-  
-  // Simple password check (in a real app, use proper authentication)
-  const savedPassword = localStorage.getItem('lockPassword') || '1234';
-  
-  if (password === savedPassword) {
-    document.getElementById('lockScreen').style.display = 'none';
-    document.getElementById('lockPassword').value = '';
-    
-    // If this is the first time, set the password
-    if (!localStorage.getItem('lockPassword')) {
-      localStorage.setItem('lockPassword', '1234');
-    }
-    
-    showNotification('Screen unlocked');
-  } else {
-    showNotification('Incorrect password', 'error');
-    document.getElementById('lockPassword').value = '';
-    document.getElementById('lockPassword').focus();
-  }
-}
-
-// Initialize window controls
-function initWindowControls() {
-  // Make sure all windows can be brought to front when clicked
-  document.querySelectorAll('.window').forEach(window => {
-    window.addEventListener('mousedown', function() {
-      bringToFront(this.id);
-    });
-  });
-}
+    case
