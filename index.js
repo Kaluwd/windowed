@@ -1638,420 +1638,255 @@ function openApp(id) {
   showNotification(`${id.charAt(0).toUpperCase() + id.slice(1)} opened`);
 }
 
-// [Previous window management functions remain the same...]
+// Initialize apps with all available applications
+const apps = [
+  'notepad', 'camera', 'location', 'explorer', 'clipboard',
+  'calculator', 'browser', 'clock', 'terminal', 'settings'
+];
 
-/* ==================== */
-/* LOCATION APP FUNCTIONS */
-/* ==================== */
+// Track active windows and their z-index
+let activeWindows = [];
+let maxZIndex = 10;
+let currentBrowserUrl = '';
+let browserHistory = [];
+let historyIndex = -1;
+let currentStream = null;
+let calcValue = '0';
+let lastCalculation = null;
+let commandHistory = [];
+let commandHistoryIndex = -1;
 
-function getLocation() {
-  const loc = document.getElementById('locationInfo');
-  const map = document.getElementById('map');
+// Initialize the OS when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initTheme();
+  initBackground();
+  initWindowControls();
+  initSystemInfo();
+  updateClock();
+  requestNotificationPermission();
   
-  if (!loc || !map) return;
-  
-  loc.innerHTML = '<p>Getting location...</p>';
-  map.innerHTML = '<p>Loading map...</p>';
-  
-  if (!navigator.geolocation) {
-    loc.innerHTML = '<p>Geolocation is not supported by your browser</p>';
-    showNotification('Geolocation not supported', 'error');
-    return;
-  }
-  
-  navigator.geolocation.getCurrentPosition(
-    position => {
-      const { latitude, longitude, accuracy } = position.coords;
-      loc.innerHTML = `
-        <p><strong>Latitude:</strong> ${latitude.toFixed(6)}</p>
-        <p><strong>Longitude:</strong> ${longitude.toFixed(6)}</p>
-        <p><strong>Accuracy:</strong> ${Math.round(accuracy)} meters</p>
-      `;
-      
-      // Update map iframe
-      map.innerHTML = `
-        <iframe 
-          width="100%" 
-          height="100%" 
-          frameborder="0" 
-          scrolling="no" 
-          src="https://www.openstreetmap.org/export/embed.html?bbox=${longitude-0.01}%2C${latitude-0.01}%2C${longitude+0.01}%2C${latitude+0.01}&amp;layer=mapnik&amp;marker=${latitude}%2C${longitude}"
-          style="border-radius: 0.5rem;">
-        </iframe>
-      `;
-      
-      showNotification('Location retrieved successfully');
-    },
-    error => {
-      let errorMessage = 'Unable to retrieve your location';
-      switch(error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage = 'Location access was denied';
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMessage = 'Location information is unavailable';
-          break;
-        case error.TIMEOUT:
-          errorMessage = 'The request to get location timed out';
-          break;
-      }
-      loc.innerHTML = `<p>${errorMessage}</p>`;
-      map.innerHTML = '<p>Map unavailable</p>';
-      showNotification(errorMessage, 'error');
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-}
-
-/* ==================== */
-/* CLIPBOARD APP FUNCTIONS */
-/* ==================== */
-
-async function showClipboard() {
-  const clipboardText = document.getElementById('clipboardText');
-  const clipboardStatus = document.getElementById('clipboardStatus');
-  
-  if (!clipboardText || !clipboardStatus) return;
-  
-  try {
-    const text = await navigator.clipboard.readText();
-    clipboardText.value = text || 'Clipboard is empty';
-    clipboardStatus.textContent = 'Clipboard content loaded';
-    setTimeout(() => clipboardStatus.textContent = '', 2000);
-    showNotification('Clipboard content loaded');
-  } catch (err) {
-    console.error('Failed to read clipboard:', err);
-    clipboardText.value = '';
-    clipboardStatus.textContent = 'Clipboard access denied. Paste manually.';
-    showNotification('Clipboard access denied', 'error');
-  }
-}
-
-async function copyToClipboard() {
-  const clipboardText = document.getElementById('clipboardText');
-  const clipboardStatus = document.getElementById('clipboardStatus');
-  
-  if (!clipboardText || !clipboardStatus) return;
-  
-  const text = clipboardText.value;
-  if (!text.trim()) {
-    showNotification('Nothing to copy', 'warning');
-    return;
-  }
-  
-  try {
-    await navigator.clipboard.writeText(text);
-    clipboardStatus.textContent = 'Copied to clipboard!';
-    setTimeout(() => clipboardStatus.textContent = '', 2000);
-    showNotification('Copied to clipboard');
-  } catch (err) {
-    console.error('Failed to write to clipboard:', err);
-    clipboardStatus.textContent = 'Failed to copy. Please try again.';
-    showNotification('Failed to copy to clipboard', 'error');
-  }
-}
-
-/* ==================== */
-/* CALCULATOR APP FUNCTIONS */
-/* ==================== */
-
-function appendToCalc(char) {
-  if (calcValue === '0' && !['.', '+', '-', '*', '/'].includes(char)) {
-    calcValue = char;
-  } else {
-    calcValue += char;
-  }
-  updateCalcDisplay();
-}
-
-function clearCalculator() {
-  calcValue = '0';
-  lastCalculation = null;
-  updateCalcDisplay();
-}
-
-function backspaceCalc() {
-  if (calcValue.length > 1) {
-    calcValue = calcValue.slice(0, -1);
-  } else {
-    calcValue = '0';
-  }
-  updateCalcDisplay();
-}
-
-function calculate() {
-  try {
-    lastCalculation = calcValue;
-    calcValue = eval(calcValue).toString();
-    updateCalcDisplay();
-    showNotification('Calculation complete');
-  } catch (e) {
-    calcValue = 'Error';
-    updateCalcDisplay();
-    showNotification('Calculation error', 'error');
-    setTimeout(() => {
-      calcValue = '0';
-      updateCalcDisplay();
-    }, 1000);
-  }
-}
-
-function updateCalcDisplay() {
-  const display = document.getElementById('calcDisplay');
-  if (display) {
-    display.textContent = calcValue;
-  }
-}
-
-/* ==================== */
-/* CLOCK APP FUNCTIONS */
-/* ==================== */
-
-function updateClock() {
-  const now = new Date();
-  const timeDisplay = document.getElementById('timeDisplay');
-  const dateDisplay = document.getElementById('dateDisplay');
-  const alarmList = document.getElementById('alarmList');
-  
-  if (timeDisplay) {
-    timeDisplay.textContent = now.toLocaleTimeString();
-  }
-  
-  if (dateDisplay) {
-    dateDisplay.textContent = now.toLocaleDateString(undefined, { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  }
-  
-  // Check alarms
-  checkAlarms(now);
-  
-  // Update every second
-  setTimeout(updateClock, 1000);
-}
-
-function setAlarm() {
-  const alarmTime = document.getElementById('alarmTime');
-  const alarmLabel = document.getElementById('alarmLabel');
-  
-  if (!alarmTime || !alarmLabel) return;
-  
-  const time = alarmTime.value;
-  const label = alarmLabel.value || 'Alarm';
-  
-  if (!time) {
-    showNotification('Please set a time for the alarm', 'warning');
-    return;
-  }
-  
-  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
-  alarms.push({
-    time,
-    label,
-    id: Date.now()
+  // Initialize all apps
+  apps.forEach(app => {
+    makeDraggable(app);
+    initWindowControlsForApp(app);
   });
   
-  localStorage.setItem('alarms', JSON.stringify(alarms));
-  loadAlarms();
+  // Set up file drop area
+  setupFileDrop();
   
-  // Clear inputs
-  alarmTime.value = '';
-  alarmLabel.value = '';
-  
-  showNotification('Alarm set successfully');
-}
-
-function loadAlarms() {
-  const alarmList = document.getElementById('alarmList');
-  if (!alarmList) return;
-  
-  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
-  alarmList.innerHTML = '';
-  
-  if (alarms.length === 0) {
-    alarmList.innerHTML = '<p>No alarms set</p>';
-    return;
+  // Initialize terminal input
+  const terminalInput = document.getElementById('terminalInput');
+  if (terminalInput) {
+    terminalInput.addEventListener('keydown', handleTerminalKey);
   }
   
-  alarms.forEach(alarm => {
-    const alarmItem = document.createElement('div');
-    alarmItem.className = 'alarm-item';
-    alarmItem.innerHTML = `
-      <span>${alarm.label} - ${alarm.time}</span>
-      <button onclick="deleteAlarm(${alarm.id})">
-        <i class="fas fa-trash"></i>
-      </button>
-    `;
-    alarmList.appendChild(alarmItem);
-  });
-}
-
-function deleteAlarm(id) {
-  let alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
-  alarms = alarms.filter(alarm => alarm.id !== id);
-  localStorage.setItem('alarms', JSON.stringify(alarms));
-  loadAlarms();
-  showNotification('Alarm deleted');
-}
-
-function checkAlarms(now) {
-  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
-  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                     now.getMinutes().toString().padStart(2, '0');
+  // Initialize calculator buttons
+  initCalculator();
   
-  alarms.forEach(alarm => {
-    if (alarm.time === currentTime) {
-      triggerAlarm(alarm);
-      // Remove the alarm if it's a one-time alarm
-      deleteAlarm(alarm.id);
-    }
-  });
-}
+  // Create missing app windows if they don't exist
+  createMissingAppWindows();
+});
 
-function triggerAlarm(alarm) {
-  // Show notification
-  showNotification(`ALARM: ${alarm.label} at ${alarm.time}`, 'warning');
-  
-  // Play sound
-  const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
-  audio.play().catch(e => console.error('Audio playback failed:', e));
-  
-  // Vibrate if supported
-  if ('vibrate' in navigator) {
-    navigator.vibrate([200, 100, 200, 100, 200]);
+// Create missing app windows
+function createMissingAppWindows() {
+  if (!document.getElementById('location')) {
+    createLocationApp();
+  }
+  if (!document.getElementById('clipboard')) {
+    createClipboardApp();
+  }
+  if (!document.getElementById('calculator')) {
+    createCalculatorApp();
+  }
+  if (!document.getElementById('clock')) {
+    createClockApp();
+  }
+  if (!document.getElementById('terminal')) {
+    createTerminalApp();
   }
 }
 
-/* ==================== */
-/* TERMINAL APP FUNCTIONS */
-/* ==================== */
+function createLocationApp() {
+  const windowsContainer = document.getElementById('windows-container');
+  const locationApp = document.createElement('div');
+  locationApp.id = 'location';
+  locationApp.className = 'window';
+  locationApp.style.cssText = 'top: 150px; left: 50px; width: 500px; height: 500px; display: none;';
+  
+  locationApp.innerHTML = `
+    <div class="header" id="drag-location">
+      <span><i class="fas fa-map-marker-alt"></i> Location</span>
+      <div class="controls">
+        <button id="minimize-location"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-location"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-location"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="locationInfo">Click "Get Location" to start</div>
+      <button onclick="getLocation()"><i class="fas fa-map-marker-alt"></i> Get Location</button>
+      <div id="map" style="width: 100%; height: 300px; margin-top: 1rem; border-radius: 0.5rem; background: var(--input-bg);"></div>
+    </div>
+  `;
+  
+  windowsContainer.appendChild(locationApp);
+  makeDraggable('location');
+  initWindowControlsForApp('location');
+}
 
-function handleTerminalKey(e) {
-  if (e.key === 'Enter') {
-    executeCommand();
-  } else if (e.key === 'ArrowUp') {
-    // Navigate command history up
-    if (commandHistory.length > 0 && commandHistoryIndex < commandHistory.length - 1) {
-      commandHistoryIndex++;
-      document.getElementById('terminalInput').value = 
-        commandHistory[commandHistory.length - 1 - commandHistoryIndex];
-    }
-    e.preventDefault();
-  } else if (e.key === 'ArrowDown') {
-    // Navigate command history down
-    if (commandHistoryIndex > 0) {
-      commandHistoryIndex--;
-      document.getElementById('terminalInput').value = 
-        commandHistory[commandHistory.length - 1 - commandHistoryIndex];
-    } else if (commandHistoryIndex === 0) {
-      commandHistoryIndex--;
-      document.getElementById('terminalInput').value = '';
-    }
-    e.preventDefault();
+function createClipboardApp() {
+  const windowsContainer = document.getElementById('windows-container');
+  const clipboardApp = document.createElement('div');
+  clipboardApp.id = 'clipboard';
+  clipboardApp.className = 'window';
+  clipboardApp.style.cssText = 'top: 150px; left: 50px; width: 500px; height: 400px; display: none;';
+  
+  clipboardApp.innerHTML = `
+    <div class="header" id="drag-clipboard">
+      <span><i class="fas fa-clipboard"></i> Clipboard</span>
+      <div class="controls">
+        <button id="minimize-clipboard"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-clipboard"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-clipboard"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <textarea id="clipboardText" placeholder="Paste your text here..." style="height: 200px;"></textarea>
+      <div class="button-group">
+        <button onclick="showClipboard()"><i class="fas fa-paste"></i> Paste</button>
+        <button onclick="copyToClipboard()"><i class="fas fa-copy"></i> Copy</button>
+      </div>
+      <div id="clipboardStatus" style="margin-top: 0.5rem;"></div>
+    </div>
+  `;
+  
+  windowsContainer.appendChild(clipboardApp);
+  makeDraggable('clipboard');
+  initWindowControlsForApp('clipboard');
+}
+
+function createCalculatorApp() {
+  const windowsContainer = document.getElementById('windows-container');
+  const calculatorApp = document.createElement('div');
+  calculatorApp.id = 'calculator';
+  calculatorApp.className = 'window';
+  calculatorApp.style.cssText = 'top: 150px; left: 50px; width: 300px; height: 400px; display: none;';
+  
+  calculatorApp.innerHTML = `
+    <div class="header" id="drag-calculator">
+      <span><i class="fas fa-calculator"></i> Calculator</span>
+      <div class="controls">
+        <button id="minimize-calculator"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-calculator"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-calculator"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="calcDisplay" style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; background: var(--input-bg); border-radius: 0.25rem; text-align: right; font-size: 1.5rem;">0</div>
+      <div class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+        <button id="calc-7">7</button>
+        <button id="calc-8">8</button>
+        <button id="calc-9">9</button>
+        <button id="calc-divide">/</button>
+        <button id="calc-4">4</button>
+        <button id="calc-5">5</button>
+        <button id="calc-6">6</button>
+        <button id="calc-multiply">*</button>
+        <button id="calc-1">1</button>
+        <button id="calc-2">2</button>
+        <button id="calc-3">3</button>
+        <button id="calc-subtract">-</button>
+        <button id="calc-0">0</button>
+        <button id="calc-decimal">.</button>
+        <button id="calc-equals">=</button>
+        <button id="calc-add">+</button>
+        <button id="calc-clear" style="grid-column: span 2;">C</button>
+        <button id="calc-backspace" style="grid-column: span 2;">⌫</button>
+      </div>
+    </div>
+  `;
+  
+  windowsContainer.appendChild(calculatorApp);
+  makeDraggable('calculator');
+  initWindowControlsForApp('calculator');
+  initCalculator();
+}
+
+function createClockApp() {
+  const windowsContainer = document.getElementById('windows-container');
+  const clockApp = document.createElement('div');
+  clockApp.id = 'clock';
+  clockApp.className = 'window';
+  clockApp.style.cssText = 'top: 150px; left: 50px; width: 300px; height: 400px; display: none;';
+  
+  clockApp.innerHTML = `
+    <div class="header" id="drag-clock">
+      <span><i class="fas fa-clock"></i> Clock</span>
+      <div class="controls">
+        <button id="minimize-clock"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-clock"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-clock"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div style="text-align: center;">
+        <div id="timeDisplay" style="font-size: 2rem; font-weight: bold;"></div>
+        <div id="dateDisplay" style="margin-bottom: 1rem;"></div>
+      </div>
+      <div style="margin-top: 1rem;">
+        <h3>Alarms</h3>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <input type="time" id="alarmTime" style="flex: 1;">
+          <input type="text" id="alarmLabel" placeholder="Label" style="flex: 1;">
+        </div>
+        <button onclick="setAlarm()" style="width: 100%;"><i class="fas fa-plus"></i> Set Alarm</button>
+        <div id="alarmList" style="margin-top: 1rem;"></div>
+      </div>
+    </div>
+  `;
+  
+  windowsContainer.appendChild(clockApp);
+  makeDraggable('clock');
+  initWindowControlsForApp('clock');
+  updateClock();
+}
+
+function createTerminalApp() {
+  const windowsContainer = document.getElementById('windows-container');
+  const terminalApp = document.createElement('div');
+  terminalApp.id = 'terminal';
+  terminalApp.className = 'window';
+  terminalApp.style.cssText = 'top: 150px; left: 50px; width: 600px; height: 400px; display: none;';
+  
+  terminalApp.innerHTML = `
+    <div class="header" id="drag-terminal">
+      <span><i class="fas fa-terminal"></i> Terminal</span>
+      <div class="controls">
+        <button id="minimize-terminal"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-terminal"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-terminal"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="terminalOutput" style="height: calc(100% - 40px); overflow: auto; background: var(--input-bg); padding: 0.5rem; font-family: monospace; white-space: pre-wrap;"></div>
+      <div style="display: flex; margin-top: 0.5rem;">
+        <span style="padding: 0.5rem;">$</span>
+        <input type="text" id="terminalInput" style="flex: 1; margin-left: 0.5rem;" placeholder="Enter command...">
+      </div>
+    </div>
+  `;
+  
+  windowsContainer.appendChild(terminalApp);
+  makeDraggable('terminal');
+  initWindowControlsForApp('terminal');
+  
+  const terminalInput = document.getElementById('terminalInput');
+  if (terminalInput) {
+    terminalInput.addEventListener('keydown', handleTerminalKey);
   }
 }
 
-function executeCommand() {
-  const input = document.getElementById('terminalInput');
-  const output = document.getElementById('terminalOutput');
-  
-  if (!input || !output) return;
-  
-  const command = input.value.trim();
-  input.value = '';
-  
-  if (!command) return;
-  
-  // Add to command history
-  commandHistory.push(command);
-  commandHistoryIndex = -1;
-  
-  // Display command
-  output.innerHTML += `<span class="prompt">$</span> ${command}<br>`;
-  
-  // Process command
-  const args = command.split(' ');
-  const cmd = args[0].toLowerCase();
-  
-  let response = '';
-  
-  switch(cmd) {
-    case 'help':
-      response = `Available commands:<br>
-        help - Show this help<br>
-        clear - Clear terminal<br>
-        open [app] - Open an app (notepad, camera, etc.)<br>
-        theme [light/dark] - Change theme<br>
-        time - Show current time<br>
-        date - Show current date<br>
-        ls - List available apps<br>
-        bg - Change background (color, image, gradient)<br>`;
-      break;
-      
-    case 'clear':
-      output.innerHTML = '';
-      return;
-      
-    case 'open':
-      if (args.length < 2) {
-        response = 'Usage: open [app]<br>Available apps: ' + apps.join(', ');
-      } else {
-        const app = args[1].toLowerCase();
-        if (apps.includes(app)) {
-          openApp(app);
-          response = `Opening ${app}`;
-        } else {
-          response = `Unknown app: ${app}`;
-        }
-      }
-      break;
-      
-    case 'theme':
-      if (args.length < 2) {
-        response = 'Usage: theme [light/dark/auto]';
-      } else {
-        const theme = args[1].toLowerCase();
-        if (theme === 'light' || theme === 'dark' || theme === 'auto') {
-          setTheme(theme);
-          response = `Theme set to ${theme}`;
-        } else {
-          response = `Invalid theme: ${theme}`;
-        }
-      }
-      break;
-      
-    case 'time':
-      response = new Date().toLocaleTimeString();
-      break;
-      
-    case 'date':
-      response = new Date().toLocaleDateString();
-      break;
-      
-    case 'ls':
-      response = 'Available apps: ' + apps.join(', ');
-      break;
-      
-    case 'bg':
-      openModal('bgSettings');
-      response = 'Opening background settings';
-      break;
-      
-    default:
-      response = `Command not found: ${cmd}<br>Type "help" for available commands`;
-  }
-  
-  // Display response
-  if (response) {
-    output.innerHTML += response + '<br>';
-  }
-  
-  // Scroll to bottom
-  output.scrollTop = output.scrollHeight;
-}
+// [Rest of your existing functions remain the same...]
 // Initialize window controls
 function initWindowControls() {
   // Make sure all windows can be brought to front when clicked
