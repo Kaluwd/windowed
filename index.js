@@ -1,97 +1,177 @@
-// Initialize apps
+// Initialize apps with all available applications
 const apps = [
-  'notepad', 'camera', 'explorer', 'browser', 'settings'
+  'notepad', 'camera', 'location', 'explorer', 'clipboard',
+  'calculator', 'browser', 'clock', 'terminal', 'settings'
 ];
 
-// Initialize window controls for each app
-apps.forEach(app => {
-  const appElement = document.getElementById(app);
-  if (appElement) {
+// Track active windows and their z-index
+let activeWindows = [];
+let maxZIndex = 10;
+let currentBrowserUrl = '';
+let browserHistory = [];
+let historyIndex = -1;
+let currentStream = null;
+let calcValue = '0';
+let lastCalculation = null;
+let commandHistory = [];
+let commandHistoryIndex = -1;
+
+// Initialize the OS when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initTheme();
+  initBackground();
+  initWindowControls();
+  initSystemInfo();
+  updateClock();
+  requestNotificationPermission();
+  
+  // Initialize all apps
+  apps.forEach(app => {
     makeDraggable(app);
-    
-    // Add event listeners for window controls
-    const minimizeBtn = document.getElementById(`minimize-${app}`);
-    const maximizeBtn = document.getElementById(`maximize-${app}`);
-    const closeBtn = document.getElementById(`close-${app}`);
-    
-    if (minimizeBtn) minimizeBtn.addEventListener('click', () => minimizeApp(app));
-    if (maximizeBtn) maximizeBtn.addEventListener('click', () => maximizeApp(app));
-    if (closeBtn) closeBtn.addEventListener('click', () => closeApp(app));
-    
-    // Add touch event listeners for mobile
-    if (minimizeBtn) minimizeBtn.addEventListener('touchend', (e) => {
+    initWindowControlsForApp(app);
+  });
+  
+  // Set up file drop area
+  setupFileDrop();
+  
+  // Initialize terminal input
+  const terminalInput = document.getElementById('terminalInput');
+  if (terminalInput) {
+    terminalInput.addEventListener('keydown', handleTerminalKey);
+  }
+});
+
+// Initialize window controls for each app
+function initWindowControlsForApp(app) {
+  const minimizeBtn = document.getElementById(`minimize-${app}`);
+  const maximizeBtn = document.getElementById(`maximize-${app}`);
+  const closeBtn = document.getElementById(`close-${app}`);
+  
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', () => minimizeApp(app));
+    minimizeBtn.addEventListener('touchend', (e) => {
       e.preventDefault();
       minimizeApp(app);
     });
-    if (maximizeBtn) maximizeBtn.addEventListener('touchend', (e) => {
+  }
+  
+  if (maximizeBtn) {
+    maximizeBtn.addEventListener('click', () => maximizeApp(app));
+    maximizeBtn.addEventListener('touchend', (e) => {
       e.preventDefault();
       maximizeApp(app);
     });
-    if (closeBtn) closeBtn.addEventListener('touchend', (e) => {
+  }
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => closeApp(app));
+    closeBtn.addEventListener('touchend', (e) => {
       e.preventDefault();
       closeApp(app);
     });
   }
-});
+}
 
 // Window management functions
 function openApp(id) {
   const el = document.getElementById(id);
   if (!el) {
-    console.warn(`App with ID ${id} not found`);
+    showNotification(`Application ${id} not found`, 'error');
+    return;
+  }
+  
+  // Check if window is already open
+  if (el.style.display === 'block') {
+    bringToFront(id);
     return;
   }
   
   el.style.display = 'block';
-  el.style.zIndex = Date.now();
-  
-  // Bring to front when clicked
-  el.addEventListener('click', function() {
-    this.style.zIndex = Date.now();
-  });
+  bringToFront(id);
   
   // App-specific initialization
   switch(id) {
     case 'camera':
       startCamera();
       break;
-    case 'browser':
-      document.getElementById('browserFrame').style.display = 'none';
-      document.getElementById('browserContent').style.display = 'block';
+    case 'location':
+      getLocation();
+      break;
+    case 'clock':
+      updateClock();
+      loadAlarms();
+      break;
+    case 'explorer':
+      updateFileExplorer();
       break;
     case 'settings':
-      openSettingsTab('appearance');
       updateSystemInfo();
       break;
+    case 'clipboard':
+      showClipboard();
+      break;
+    case 'terminal':
+      document.getElementById('terminalInput').focus();
+      break;
   }
+  
+  // Add to active windows
+  if (!activeWindows.includes(id)) {
+    activeWindows.push(id);
+  }
+  
+  // Update taskbar item state
+  updateTaskbarItemState(id, true);
+  
+  showNotification(`${id.charAt(0).toUpperCase() + id.slice(1)} opened`);
+}
+
+function updateTaskbarItemState(appId, isActive) {
+  const taskItems = document.querySelectorAll('.task-item');
+  taskItems.forEach(item => {
+    if (item.onclick && item.onclick.toString().includes(appId)) {
+      if (isActive) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    }
+  });
+}
+
+function bringToFront(id) {
+  const el = document.getElementById(id);
+  maxZIndex++;
+  el.style.zIndex = maxZIndex;
 }
 
 function closeApp(id) {
   const el = document.getElementById(id);
-  if (!el) return;
-  
   el.style.display = 'none';
   el.classList.remove('maximized');
   
-  // Stop camera when closing
-  if (id === 'camera') {
-    const video = document.getElementById('video');
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(track => track.stop());
-      video.srcObject = null;
-    }
+  // Remove from active windows
+  activeWindows = activeWindows.filter(app => app !== id);
+  
+  // Update taskbar item state
+  updateTaskbarItemState(id, false);
+  
+  // App-specific cleanup
+  switch(id) {
+    case 'camera':
+      stopCamera();
+      break;
   }
 }
 
 function minimizeApp(id) {
   const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
+  el.style.display = 'none';
+  updateTaskbarItemState(id, false);
 }
 
 function maximizeApp(id) {
   const el = document.getElementById(id);
-  if (!el) return;
-  
   el.classList.toggle('maximized');
   
   if (el.classList.contains('maximized')) {
@@ -104,8 +184,8 @@ function maximizeApp(id) {
     // Maximize
     el.style.top = '0';
     el.style.left = '0';
-    el.style.width = 'calc(100% - 4px)';
-    el.style.height = 'calc(100% - 4px)';
+    el.style.width = '100%';
+    el.style.height = 'calc(100vh - 48px)'; // Account for taskbar
   } else {
     // Restore original position and size
     el.style.top = el.dataset.originalTop || '100px';
@@ -113,13 +193,16 @@ function maximizeApp(id) {
     el.style.width = el.dataset.originalWidth || '800px';
     el.style.height = el.dataset.originalHeight || '600px';
   }
+  
+  bringToFront(id);
 }
 
+// Draggable window functionality
 function makeDraggable(id) {
   const el = document.getElementById(id);
   if (!el) return;
   
-  const header = document.getElementById(`drag-${id}`);
+  const header = el.querySelector('.header');
   if (!header) return;
   
   let isDragging = false;
@@ -150,6 +233,8 @@ function makeDraggable(id) {
     if (e.type === 'touchstart') {
       e.preventDefault();
     }
+    
+    bringToFront(id);
   }
 
   function drag(e) {
@@ -182,7 +267,7 @@ function makeDraggable(id) {
     
     // Check if this was a click (minimal movement)
     if (Math.abs(clientX - startX) < 5 && Math.abs(clientY - startY) < 5) {
-      el.style.zIndex = Date.now();
+      bringToFront(id);
     }
     
     isDragging = false;
@@ -194,95 +279,364 @@ function makeDraggable(id) {
 }
 
 // Notepad functions
-function saveNote() {
+async function saveNote() {
   const content = document.getElementById('notepadText').value;
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'note.txt';
-  a.click();
-  URL.revokeObjectURL(url);
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        types: [{ description: 'Text Files', accept: {'text/plain': ['.txt']} }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      showNotification('Note saved successfully');
+    } else {
+      // Fallback for browsers that don't support File System Access API
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'note.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      showNotification('Note downloaded as text file');
+    }
+  } catch (err) {
+    console.error('Error saving file:', err);
+    showNotification('Error saving file', 'error');
+  }
 }
 
-function loadNote() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.txt,text/plain';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = event => {
-      document.getElementById('notepadText').value = event.target.result;
-    };
-    reader.readAsText(file);
-  };
-  input.click();
+async function loadNote() {
+  try {
+    let file;
+    
+    if (window.showOpenFilePicker) {
+      const [fileHandle] = await window.showOpenFilePicker();
+      file = await fileHandle.getFile();
+    } else {
+      // Fallback for browsers that don't support File System Access API
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt,text/plain';
+      
+      return new Promise((resolve) => {
+        input.onchange = async e => {
+          file = e.target.files[0];
+          const text = await readFileContent(file);
+          document.getElementById('notepadText').value = text;
+          showNotification('Note loaded successfully');
+          resolve();
+        };
+        input.click();
+      });
+    }
+    
+    const text = await file.text();
+    document.getElementById('notepadText').value = text;
+    showNotification('Note loaded successfully');
+  } catch (err) {
+    console.error('Error loading file:', err);
+    if (err.name !== 'AbortError') {
+      showNotification('Error loading file', 'error');
+    }
+  }
 }
 
 function clearNote() {
   document.getElementById('notepadText').value = '';
 }
 
-// Camera functions
-let currentStream = null;
+// File Explorer functions
+function setupFileDrop() {
+  const dropArea = document.getElementById('fileDropArea');
+  if (!dropArea) return;
 
-function startCamera() {
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, unhighlight, false);
+  });
+
+  function highlight() {
+    dropArea.classList.add('highlight');
+  }
+
+  function unhighlight() {
+    dropArea.classList.remove('highlight');
+  }
+
+  dropArea.addEventListener('drop', handleDrop, false);
+
+  async function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+      const file = files[0];
+      await displayFileInfo(file);
+      await readFileContent(file, 'fileContent');
+    }
+  }
+}
+
+async function loadFile() {
+  try {
+    let file;
+    
+    if (window.showOpenFilePicker) {
+      const [fileHandle] = await window.showOpenFilePicker();
+      file = await fileHandle.getFile();
+    } else {
+      // Fallback for browsers that don't support File System Access API
+      const input = document.createElement('input');
+      input.type = 'file';
+      
+      return new Promise((resolve) => {
+        input.onchange = async e => {
+          file = e.target.files[0];
+          await displayFileInfo(file);
+          await readFileContent(file, 'fileContent');
+          resolve();
+        };
+        input.click();
+      });
+    }
+    
+    await displayFileInfo(file);
+    await readFileContent(file, 'fileContent');
+  } catch (err) {
+    console.error('Error loading file:', err);
+    if (err.name !== 'AbortError') {
+      showNotification('Error loading file', 'error');
+    }
+  }
+}
+
+async function saveFile() {
+  const content = document.getElementById('fileContent').textContent;
+  if (!content) {
+    showNotification('No content to save', 'warning');
+    return;
+  }
+  
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker();
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      showNotification('File saved successfully');
+    } else {
+      // Fallback for browsers that don't support File System Access API
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'file.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      showNotification('File downloaded');
+    }
+  } catch (err) {
+    console.error('Error saving file:', err);
+    showNotification('Error saving file', 'error');
+  }
+}
+
+function createNewFile() {
+  document.getElementById('fileContent').textContent = '';
+  document.getElementById('fileInfo').innerHTML = '<p>New file</p>';
+  showNotification('New file created');
+}
+
+async function displayFileInfo(file) {
+  const fileInfo = document.getElementById('fileInfo');
+  if (!fileInfo) return;
+  
+  fileInfo.innerHTML = `
+    <p><strong>Name:</strong> ${file.name}</p>
+    <p><strong>Type:</strong> ${file.type || 'unknown'}</p>
+    <p><strong>Size:</strong> ${formatFileSize(file.size)}</p>
+    <p><strong>Last modified:</strong> ${new Date(file.lastModified).toLocaleString()}</p>
+  `;
+}
+
+async function readFileContent(file, targetElementId = 'fileContent') {
+  const target = document.getElementById(targetElementId);
+  if (!target) return;
+  
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = event => {
+      if (file.type.startsWith('image/')) {
+        target.innerHTML = `<img src="${event.target.result}" style="max-width: 100%;" />`;
+      } else if (file.type.startsWith('text/') || file.type === '') {
+        target.textContent = event.target.result;
+      } else {
+        target.textContent = `Binary file content (${file.type}) cannot be displayed`;
+      }
+      resolve();
+    };
+    
+    reader.onerror = () => {
+      target.textContent = 'Error reading file';
+      reject(new Error('File reading error'));
+    };
+    
+    if (file.type.startsWith('text/') || file.type === '') {
+      reader.readAsText(file);
+    } else if (file.type.startsWith('image/')) {
+      reader.readAsDataURL(file);
+    } else {
+      reader.readAsBinaryString(file);
+    }
+  });
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function updateFileExplorer() {
+  // Could be enhanced to show directory structure
+  document.getElementById('fileContent').innerHTML = '<p class="placeholder">Select or drop a file here</p>';
+  document.getElementById('fileInfo').innerHTML = '<p>No file selected</p>';
+}
+
+// Camera functions
+async function startCamera() {
   const video = document.getElementById('video');
+  if (!video) return;
   
   if (currentStream) {
     return; // Camera already started
   }
   
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-      video.srcObject = stream;
-      currentStream = stream;
-    })
-    .catch(err => {
-      console.error('Camera error:', err);
-      alert('Could not access camera. Please ensure you\'ve granted permission.');
-    });
+  try {
+    const constraints = {
+      video: {
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
+    
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    currentStream = stream;
+    document.getElementById('savePhotoBtn').disabled = true;
+  } catch (err) {
+    console.error('Camera error:', err);
+    const contentDiv = document.getElementById('camera').querySelector('.content');
+    contentDiv.innerHTML = `
+      <div class="camera-error">
+        <p>Could not access camera. Please ensure you've granted permission.</p>
+        <button onclick="startCamera()">Try Again</button>
+      </div>
+    `;
+    showNotification('Camera access denied', 'error');
+  }
+}
+
+function stopCamera() {
+  const video = document.getElementById('video');
+  if (video && video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+    currentStream = null;
+  }
 }
 
 function takePhoto() {
   const video = document.getElementById('video');
   const canvas = document.getElementById('photoCanvas');
+  const contentDiv = document.getElementById('camera').querySelector('.content');
   
-  if (!video.srcObject) return;
+  if (!video || !video.srcObject) {
+    showNotification('Camera not active', 'warning');
+    return;
+  }
   
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
-  // Enable save button
+  // Show the photo
+  const imgUrl = canvas.toDataURL('image/png');
+  contentDiv.innerHTML = `
+    <img src="${imgUrl}" style="max-width: 100%; border-radius: 0.5rem;" />
+    <div class="camera-controls">
+      <button onclick="savePhoto('${imgUrl}')" id="savePhotoBtn"><i class="fas fa-save"></i> Save Photo</button>
+      <button onclick="startCamera()"><i class="fas fa-redo"></i> Take Another</button>
+    </div>
+  `;
+  
   document.getElementById('savePhotoBtn').disabled = false;
 }
 
-function savePhoto() {
-  const canvas = document.getElementById('photoCanvas');
-  const dataUrl = canvas.toDataURL('image/png');
+async function savePhoto(imgUrl) {
+  if (!imgUrl) {
+    const canvas = document.getElementById('photoCanvas');
+    imgUrl = canvas.toDataURL('image/png');
+  }
+  
   const a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = 'photo.png';
+  a.href = imgUrl;
+  a.download = `photo_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
   a.click();
+  showNotification('Photo saved');
 }
 
-function switchCamera() {
-  if (currentStream) {
-    currentStream.getTracks().forEach(track => track.stop());
-    currentStream = null;
+async function switchCamera() {
+  stopCamera();
+  
+  // Toggle between front and back camera
+  const video = document.getElementById('video');
+  const constraints = {
+    video: {
+      facingMode: video.dataset.facingMode === 'user' ? 'environment' : 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    }
+  };
+  
+  video.dataset.facingMode = constraints.video.facingMode;
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    currentStream = stream;
+  } catch (err) {
+    console.error('Error switching camera:', err);
+    showNotification('Error switching camera', 'error');
   }
-  startCamera();
 }
 
 // Browser functions
-let currentBrowserUrl = '';
-
 function loadUrl() {
   const urlInput = document.getElementById('browserUrl').value.trim();
   if (!urlInput) return;
+  
+  const browserContent = document.getElementById('browserContent');
+  browserContent.innerHTML = '<div class="browser-message">Loading...</div>';
   
   try {
     // Format URL properly
@@ -295,37 +649,16 @@ function loadUrl() {
     new URL(url);
     currentBrowserUrl = url;
     
-    // Load in iframe
-    const iframe = document.getElementById('browserFrame');
-    iframe.src = url;
-    iframe.style.display = 'block';
-    document.getElementById('browserContent').style.display = 'none';
+    // Add to history
+    browserHistory.push(url);
+    historyIndex = browserHistory.length - 1;
+    updateBrowserControls();
+    
+    // Try to embed in iframe (will fail for most sites due to security)
+    tryEmbedUrl(url);
   } catch (e) {
-    alert("Invalid URL format. Please include http:// or https://");
+    showBrowserError("Invalid URL format. Please include http:// or https://");
   }
-}
-
-function browserBack() {
-  const iframe = document.getElementById('browserFrame');
-  try {
-    iframe.contentWindow.history.back();
-  } catch (e) {
-    console.error("Cannot navigate back:", e);
-  }
-}
-
-function browserForward() {
-  const iframe = document.getElementById('browserFrame');
-  try {
-    iframe.contentWindow.history.forward();
-  } catch (e) {
-    console.error("Cannot navigate forward:", e);
-  }
-}
-
-function browserRefresh() {
-  const iframe = document.getElementById('browserFrame');
-  iframe.src = iframe.src;
 }
 
 function loadQuickUrl(url) {
@@ -333,94 +666,103 @@ function loadQuickUrl(url) {
   loadUrl();
 }
 
+function tryEmbedUrl(url) {
+  const browserContent = document.getElementById('browserContent');
+  
+  // Create iframe
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = 'none';
+  
+  // Handle iframe events
+  iframe.onload = function() {
+    // This may not trigger for cross-origin iframes
+    setTimeout(() => {
+      try {
+        // Try accessing iframe content (will throw if cross-origin)
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (!iframeDoc || !iframeDoc.body) {
+          throw new Error("Cross-origin frame");
+        }
+      } catch (e) {
+        // If we can't access the iframe content, show fallback
+        showBrowserFallback(url);
+      }
+    }, 1000);
+  };
+  
+  iframe.onerror = function() {
+    showBrowserFallback(url);
+  };
+  
+  // Clear and add iframe
+  browserContent.innerHTML = '';
+  browserContent.appendChild(iframe);
+}
+
+function showBrowserFallback(url) {
+  const browserContent = document.getElementById('browserContent');
+  browserContent.innerHTML = `
+    <div class="browser-message">
+      <p>This website cannot be embedded due to security restrictions.</p>
+      <a href="${url}" target="_blank" class="browser-link">Open ${new URL(url).hostname} in New Tab</a>
+      <p class="browser-note">Most modern websites block being embedded in iframes</p>
+    </div>
+  `;
+}
+
+function showBrowserError(message) {
+  const browserContent = document.getElementById('browserContent');
+  browserContent.innerHTML = `
+    <div class="browser-message browser-error">
+      <p>${message}</p>
+      <p class="browser-note">Example valid URLs: google.com, https://example.com</p>
+    </div>
+  `;
+}
+
+function browserBack() {
+  if (historyIndex > 0) {
+    historyIndex--;
+    const url = browserHistory[historyIndex];
+    document.getElementById('browserUrl').value = url;
+    tryEmbedUrl(url);
+    updateBrowserControls();
+  }
+}
+
+function browserForward() {
+  if (historyIndex < browserHistory.length - 1) {
+    historyIndex++;
+    const url = browserHistory[historyIndex];
+    document.getElementById('browserUrl').value = url;
+    tryEmbedUrl(url);
+    updateBrowserControls();
+  }
+}
+
+function browserRefresh() {
+  if (currentBrowserUrl) {
+    tryEmbedUrl(currentBrowserUrl);
+  }
+}
+
+function updateBrowserControls() {
+  const backBtn = document.querySelector('#browser .browser-toolbar button:nth-child(1)');
+  const forwardBtn = document.querySelector('#browser .browser-toolbar button:nth-child(2)');
+  
+  if (backBtn) backBtn.disabled = historyIndex <= 0;
+  if (forwardBtn) forwardBtn.disabled = historyIndex >= browserHistory.length - 1;
+}
+
 function openCurrentInNewTab() {
   if (currentBrowserUrl) {
     window.open(currentBrowserUrl, '_blank');
   } else {
-    alert('Please enter and load a URL first');
+    showNotification('Please load a URL first', 'warning');
   }
-}
-
-// File Explorer functions
-function loadFile() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = event => {
-      document.getElementById('fileInfo').innerHTML = `
-        <p><strong>Name:</strong> ${file.name}</p>
-        <p><strong>Type:</strong> ${file.type}</p>
-        <p><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</p>
-      `;
-      
-      if (file.type.startsWith('text/')) {
-        document.getElementById('fileContent').textContent = event.target.result;
-      } else {
-        document.getElementById('fileContent').innerHTML = `
-          <p>File preview not available for this file type</p>
-        `;
-      }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-function saveFile() {
-  const content = document.getElementById('fileContent').textContent;
-  if (!content) {
-    alert('No file content to save');
-    return;
-  }
-  
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'file.txt';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function createNewFile() {
-  document.getElementById('fileInfo').innerHTML = '<p>New file</p>';
-  document.getElementById('fileContent').textContent = '';
-}
-
-// Setup file drop area
-const fileDropArea = document.getElementById('fileDropArea');
-if (fileDropArea) {
-  fileDropArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    fileDropArea.classList.add('dragover');
-  });
-  
-  fileDropArea.addEventListener('dragleave', () => {
-    fileDropArea.classList.remove('dragover');
-  });
-  
-  fileDropArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    fileDropArea.classList.remove('dragover');
-    
-    if (e.dataTransfer.files.length) {
-      const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onload = event => {
-        document.getElementById('fileInfo').innerHTML = `
-          <p><strong>Name:</strong> ${file.name}</p>
-          <p><strong>Type:</strong> ${file.type}</p>
-          <p><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</p>
-        `;
-        document.getElementById('fileContent').textContent = event.target.result;
-      };
-      reader.readAsText(file);
-    }
-  });
 }
 
 // Settings functions
@@ -431,20 +773,24 @@ function openSettingsTab(tabName) {
   });
   
   // Deactivate all tab buttons
-  document.querySelectorAll('.settings-tabs .tab-btn').forEach(btn => {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.remove('active');
   });
   
-  // Show selected tab
+  // Show selected tab and activate its button
   document.getElementById(`${tabName}-tab`).style.display = 'block';
-  
-  // Activate selected button
-  document.querySelector(`.settings-tabs .tab-btn[onclick*="${tabName}"]`).classList.add('active');
+  document.querySelector(`.tab-btn[onclick="openSettingsTab('${tabName}')"]`).classList.add('active');
 }
 
 function setTheme(theme) {
+  if (theme === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    theme = prefersDark ? 'dark' : 'light';
+  }
+  
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
+  showNotification(`Theme set to ${theme}`);
 }
 
 function toggleTheme() {
@@ -453,94 +799,80 @@ function toggleTheme() {
   setTheme(newTheme);
 }
 
-function toggleWindowTransparency() {
-  const windows = document.querySelectorAll('.window');
-  const isTransparent = document.getElementById('transparencyToggle').checked;
-  
-  windows.forEach(window => {
-    if (isTransparent) {
-      window.classList.add('transparent');
-    } else {
-      window.classList.remove('transparent');
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  setTheme(savedTheme);
+}
+
+// Background customization
+function initBackground() {
+  const savedBg = localStorage.getItem('background');
+  if (savedBg) {
+    try {
+      const bg = JSON.parse(savedBg);
+      applyBackground(bg);
+      updateBgPreview(bg);
+    } catch (e) {
+      console.error('Error loading background:', e);
     }
-  });
-}
-
-function changeTransparencyLevel() {
-  const level = document.getElementById('transparencyLevel').value;
-  document.documentElement.style.setProperty('--window-opacity', level / 100);
-}
-
-function updateSystemInfo() {
-  document.getElementById('browserInfo').textContent = navigator.userAgent;
-  document.getElementById('screenInfo').textContent = `${window.screen.width}x${window.screen.height}`;
-  
-  // Memory info (not all browsers support this)
-  if (navigator.deviceMemory) {
-    document.getElementById('memoryInfo').textContent = `${navigator.deviceMemory} GB`;
-  } else {
-    document.getElementById('memoryInfo').textContent = 'Not available';
   }
 }
 
-function requestCameraPermission() {
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(() => {
-      alert('Camera permission granted');
-    })
-    .catch(() => {
-      alert('Camera permission denied');
-    });
+function openModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.style.display = 'flex';
+    bringToFront(modalId);
+  }
 }
 
-function requestLocationPermission() {
-  navigator.geolocation.getCurrentPosition(
-    () => alert('Location permission granted'),
-    () => alert('Location permission denied')
-  );
-}
-
-function requestNotificationPermission() {
-  Notification.requestPermission().then(permission => {
-    alert(`Notification permission: ${permission}`);
-  });
-}
-
-// Background settings functions
-function openModal(id) {
-  document.getElementById(id).style.display = 'block';
-}
-
-function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.style.display = 'none';
+  }
 }
 
 function setSolidColor() {
   const color = document.getElementById('bgColorPicker').value;
-  document.body.style.background = color;
-  localStorage.setItem('background', JSON.stringify({ type: 'color', value: color }));
+  const bg = { type: 'color', value: color };
+  applyBackground(bg);
+  saveBackground(bg);
+  closeModal('bgSettings');
 }
 
 function setBgFromUrl() {
-  const url = document.getElementById('bgImageUrl').value;
+  const url = document.getElementById('bgImageUrl').value.trim();
   if (!url) return;
   
-  document.body.style.backgroundImage = `url('${url}')`;
-  document.body.style.backgroundSize = 'cover';
-  localStorage.setItem('background', JSON.stringify({ type: 'image-url', value: url }));
+  // Validate URL
+  try {
+    new URL(url);
+  } catch (e) {
+    showNotification('Invalid URL', 'error');
+    return;
+  }
+  
+  const bg = { type: 'image-url', value: url };
+  applyBackground(bg);
+  saveBackground(bg);
+  closeModal('bgSettings');
 }
 
 function setBgFromUpload() {
   const input = document.getElementById('bgImageUpload');
-  if (!input.files.length) return;
+  if (!input.files || !input.files[0]) return;
   
   const file = input.files[0];
   const reader = new FileReader();
+  
   reader.onload = function(e) {
-    document.body.style.backgroundImage = `url('${e.target.result}')`;
-    document.body.style.backgroundSize = 'cover';
-    localStorage.setItem('background', JSON.stringify({ type: 'image-upload', value: e.target.result }));
+    const bg = { type: 'image-data', value: e.target.result };
+    applyBackground(bg);
+    saveBackground(bg);
+    closeModal('bgSettings');
   };
+  
   reader.readAsDataURL(file);
 }
 
@@ -549,25 +881,600 @@ function setGradientBg() {
   const color2 = document.getElementById('gradientColor2').value;
   const direction = document.getElementById('gradientDirection').value;
   
-  const gradient = `linear-gradient(${direction}, ${color1}, ${color2})`;
-  document.body.style.background = gradient;
-  localStorage.setItem('background', JSON.stringify({ 
-    type: 'gradient', 
-    value: { color1, color2, direction }
-  }));
+  const bg = {
+    type: 'gradient',
+    value: {
+      color1,
+      color2,
+      direction
+    }
+  };
+  
+  applyBackground(bg);
+  saveBackground(bg);
+  closeModal('bgSettings');
+}
+
+function applyBackground(bg) {
+  let bgStyle = '';
+  
+  switch(bg.type) {
+    case 'color':
+      bgStyle = bg.value;
+      break;
+    case 'image-url':
+      bgStyle = `url('${bg.value}')`;
+      break;
+    case 'image-data':
+      bgStyle = `url('${bg.value}')`;
+      break;
+    case 'gradient':
+      bgStyle = `linear-gradient(${bg.value.direction}, ${bg.value.color1}, ${bg.value.color2})`;
+      break;
+    default:
+      bgStyle = 'var(--bg)';
+  }
+  
+  document.body.style.background = bgStyle;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.style.backgroundAttachment = 'fixed';
+  
+  updateBgPreview(bg);
+}
+
+function saveBackground(bg) {
+  localStorage.setItem('background', JSON.stringify(bg));
+}
+
+function updateBgPreview(bg) {
+  const preview = document.getElementById('currentBgPreview');
+  if (!preview) return;
+  
+  preview.style.background = getBgStyle(bg);
+  preview.style.backgroundSize = 'cover';
+  preview.style.backgroundPosition = 'center';
+}
+
+function getBgStyle(bg) {
+  if (!bg) return 'var(--bg)';
+  
+  switch(bg.type) {
+    case 'color':
+      return bg.value;
+    case 'image-url':
+      return `url('${bg.value}')`;
+    case 'image-data':
+      return `url('${bg.value}')`;
+    case 'gradient':
+      return `linear-gradient(${bg.value.direction}, ${bg.value.color1}, ${bg.value.color2})`;
+    default:
+      return 'var(--bg)';
+  }
+}
+
+function toggleWindowTransparency() {
+  const transparencyToggle = document.getElementById('transparencyToggle');
+  const windows = document.querySelectorAll('.window');
+  
+  windows.forEach(window => {
+    if (transparencyToggle.checked) {
+      window.style.backgroundColor = 'rgba(var(--window-bg-rgb), 0.9)';
+    } else {
+      window.style.backgroundColor = 'var(--window-bg)';
+    }
+  });
+}
+
+function changeTransparencyLevel() {
+  const level = document.getElementById('transparencyLevel').value / 100;
+  const windows = document.querySelectorAll('.window');
+  
+  windows.forEach(window => {
+    window.style.backgroundColor = `rgba(var(--window-bg-rgb), ${level})`;
+  });
+}
+
+// System information
+function initSystemInfo() {
+  if (!document.getElementById('systemInfo')) return;
+  
+  // Browser info
+  const browserInfo = document.getElementById('browserInfo');
+  if (browserInfo) {
+    browserInfo.textContent = getBrowserInfo();
+  }
+  
+  // Screen info
+  const screenInfo = document.getElementById('screenInfo');
+  if (screenInfo) {
+    screenInfo.textContent = `${window.screen.width}x${window.screen.height}`;
+  }
+  
+  // Memory info (if supported)
+  const memoryInfo = document.getElementById('memoryInfo');
+  if (memoryInfo && navigator.deviceMemory) {
+    memoryInfo.textContent = `${navigator.deviceMemory} GB`;
+  }
+}
+
+function updateSystemInfo() {
+  initSystemInfo(); // Refresh info when settings app is opened
+}
+
+function getBrowserInfo() {
+  const userAgent = navigator.userAgent;
+  let browserName;
+  
+  if (userAgent.match(/chrome|chromium|crios/i)) {
+    browserName = "Chrome";
+  } else if (userAgent.match(/firefox|fxios/i)) {
+    browserName = "Firefox";
+  } else if (userAgent.match(/safari/i)) {
+    browserName = "Safari";
+  } else if (userAgent.match(/opr\//i)) {
+    browserName = "Opera";
+  } else if (userAgent.match(/edg/i)) {
+    browserName = "Edge";
+  } else {
+    browserName = "Unknown";
+  }
+  
+  return `${browserName} (${navigator.platform})`;
+}
+
+// Permission requests
+function requestCameraPermission() {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      stream.getTracks().forEach(track => track.stop());
+      showNotification('Camera permission granted', 'success');
+    })
+    .catch(err => {
+      console.error('Camera permission error:', err);
+      showNotification('Camera permission denied', 'error');
+    });
+}
+
+function requestLocationPermission() {
+  navigator.geolocation.getCurrentPosition(
+    () => showNotification('Location permission granted', 'success'),
+    (err) => {
+      console.error('Location permission error:', err);
+      showNotification('Location permission denied', 'error');
+    }
+  );
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window) {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        console.log('Notification permission granted');
+      }
+    });
+  }
+}
+
+// Notification system
+function showNotification(message, type = 'info') {
+  const container = document.getElementById('notification-container');
+  if (!container) return;
+  
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.textContent = message;
+  
+  container.appendChild(notification);
+  
+  // Auto-remove after delay
+  setTimeout(() => {
+    notification.classList.add('fade-out');
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Clock and Alarm functions
+function updateClock() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString();
+  const dateStr = now.toLocaleDateString(undefined, { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  
+  const timeDisplay = document.getElementById('timeDisplay');
+  const dateDisplay = document.getElementById('dateDisplay');
+  
+  if (timeDisplay) timeDisplay.textContent = timeStr;
+  if (dateDisplay) dateDisplay.textContent = dateStr;
+  
+  // Check alarms
+  checkAlarms(now);
+  
+  setTimeout(updateClock, 1000);
+}
+
+function setAlarm() {
+  const timeInput = document.getElementById('alarmTime').value;
+  const labelInput = document.getElementById('alarmLabel').value || 'Alarm';
+  
+  if (!timeInput) {
+    showNotification('Please set a time for the alarm', 'warning');
+    return;
+  }
+  
+  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  alarms.push({
+    time: timeInput,
+    label: labelInput,
+    id: Date.now()
+  });
+  
+  localStorage.setItem('alarms', JSON.stringify(alarms));
+  loadAlarms();
+  
+  // Clear inputs
+  document.getElementById('alarmTime').value = '';
+  document.getElementById('alarmLabel').value = '';
+  
+  showNotification('Alarm set');
+}
+
+function loadAlarms() {
+  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  const alarmList = document.getElementById('alarmList');
+  
+  if (!alarmList) return;
+  
+  alarmList.innerHTML = '';
+  
+  if (alarms.length === 0) {
+    alarmList.innerHTML = '<p>No alarms set</p>';
+    return;
+  }
+  
+  alarms.forEach(alarm => {
+    const alarmItem = document.createElement('div');
+    alarmItem.className = 'alarm-item';
+    alarmItem.innerHTML = `
+      <span>${alarm.label} - ${alarm.time}</span>
+      <button onclick="deleteAlarm(${alarm.id})"><i class="fas fa-trash"></i></button>
+    `;
+    alarmList.appendChild(alarmItem);
+  });
+}
+
+function deleteAlarm(id) {
+  let alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  alarms = alarms.filter(alarm => alarm.id !== id);
+  localStorage.setItem('alarms', JSON.stringify(alarms));
+  loadAlarms();
+  showNotification('Alarm deleted');
+}
+
+function checkAlarms(now) {
+  const alarms = JSON.parse(localStorage.getItem('alarms') || '[]');
+  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                     now.getMinutes().toString().padStart(2, '0');
+  
+  alarms.forEach(alarm => {
+    if (alarm.time === currentTime) {
+      // Trigger alarm
+      triggerAlarm(alarm);
+      // Remove the alarm if it's a one-time alarm
+      deleteAlarm(alarm.id);
+    }
+  });
+}
+
+function triggerAlarm(alarm) {
+  if (Notification.permission === 'granted') {
+    new Notification(alarm.label, {
+      body: 'Alarm! It\'s ' + alarm.time
+    });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        new Notification(alarm.label, {
+          body: 'Alarm! It\'s ' + alarm.time
+        });
+      }
+    });
+  }
+  
+  // Play sound
+  const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+  audio.play();
+  
+  showNotification(`ALARM: ${alarm.label} at ${alarm.time}`, 'warning');
+}
+
+// Location functions
+function getLocation() {
+  const loc = document.getElementById('locationInfo');
+  if (!loc) return;
+  
+  loc.textContent = 'Getting location...';
+  
+  if (!navigator.geolocation) {
+    loc.textContent = 'Geolocation is not supported by your browser';
+    showNotification('Geolocation not supported', 'error');
+    return;
+  }
+  
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      loc.innerHTML = `
+        <strong>Latitude:</strong> ${latitude.toFixed(6)}<br>
+        <strong>Longitude:</strong> ${longitude.toFixed(6)}<br>
+        <strong>Accuracy:</strong> ${Math.round(accuracy)} meters
+      `;
+      
+      // Show simple map (using OpenStreetMap iframe)
+      const map = document.getElementById('map');
+      if (map) {
+        map.innerHTML = `
+          <iframe 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            scrolling="no" 
+            marginheight="0" 
+            marginwidth="0" 
+            src="https://www.openstreetmap.org/export/embed.html?bbox=${longitude-0.01}%2C${latitude-0.01}%2C${longitude+0.01}%2C${latitude+0.01}&amp;layer=mapnik&amp;marker=${latitude}%2C${longitude}"
+            style="border-radius: 0.5rem;">
+          </iframe>
+        `;
+      }
+      
+      showNotification('Location retrieved');
+    },
+    err => {
+      console.error('Geolocation error:', err);
+      loc.textContent = 'Unable to retrieve your location: ' + 
+        (err.message || 'Permission denied or location unavailable');
+      showNotification('Location error', 'error');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// Clipboard functions
+async function showClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('clipboardText').value = text || 'Clipboard is empty.';
+    document.getElementById('clipboardStatus').textContent = 'Clipboard content loaded';
+    setTimeout(() => {
+      document.getElementById('clipboardStatus').textContent = '';
+    }, 2000);
+    showNotification('Clipboard content loaded');
+  } catch (err) {
+    console.error('Clipboard error:', err);
+    document.getElementById('clipboardStatus').textContent = 'Clipboard access denied. Paste manually.';
+    // Fallback for browsers that don't support clipboard API
+    document.getElementById('clipboardText').value = '';
+    document.getElementById('clipboardText').focus();
+    showNotification('Clipboard access denied', 'error');
+  }
+}
+
+async function copyToClipboard() {
+  const text = document.getElementById('clipboardText').value;
+  try {
+    await navigator.clipboard.writeText(text);
+    document.getElementById('clipboardStatus').textContent = 'Copied to clipboard!';
+    setTimeout(() => {
+      document.getElementById('clipboardStatus').textContent = '';
+    }, 2000);
+    showNotification('Copied to clipboard');
+  } catch (err) {
+    console.error('Copy error:', err);
+    document.getElementById('clipboardStatus').textContent = 'Failed to copy. Your browser may not support this feature.';
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      document.getElementById('clipboardStatus').textContent = 'Copied to clipboard!';
+      setTimeout(() => {
+        document.getElementById('clipboardStatus').textContent = '';
+      }, 2000);
+      showNotification('Copied to clipboard');
+    } catch (err) {
+      document.getElementById('clipboardStatus').textContent = 'Failed to copy. Please copy manually.';
+      showNotification('Failed to copy to clipboard', 'error');
+    }
+    document.body.removeChild(textarea);
+  }
+}
+
+// Calculator functions
+function appendToCalc(char) {
+  if (calcValue === '0' && char !== '.') {
+    calcValue = char;
+  } else {
+    calcValue += char;
+  }
+  updateCalcDisplay();
+}
+
+function clearCalculator() {
+  calcValue = '0';
+  lastCalculation = null;
+  updateCalcDisplay();
+}
+
+function backspaceCalc() {
+  if (calcValue.length > 1) {
+    calcValue = calcValue.slice(0, -1);
+  } else {
+    calcValue = '0';
+  }
+  updateCalcDisplay();
+}
+
+function calculate() {
+  try {
+    lastCalculation = calcValue;
+    calcValue = eval(calcValue).toString();
+    updateCalcDisplay();
+  } catch (e) {
+    calcValue = 'Error';
+    updateCalcDisplay();
+    setTimeout(() => {
+      calcValue = '0';
+      updateCalcDisplay();
+    }, 1000);
+  }
+}
+
+function updateCalcDisplay() {
+  const display = document.getElementById('calcDisplay');
+  if (display) {
+    display.textContent = calcValue;
+  }
+}
+
+function useLastResult() {
+  if (lastCalculation) {
+    calcValue = lastCalculation;
+    updateCalcDisplay();
+  }
+}
+
+// Terminal functions
+function handleTerminalKey(e) {
+  if (e.key === 'Enter') {
+    executeCommand();
+  } else if (e.key === 'ArrowUp') {
+    // Navigate command history
+    if (commandHistory.length > 0 && commandHistoryIndex < commandHistory.length - 1) {
+      commandHistoryIndex++;
+      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+    }
+    e.preventDefault();
+  } else if (e.key === 'ArrowDown') {
+    // Navigate command history
+    if (commandHistoryIndex > 0) {
+      commandHistoryIndex--;
+      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+    } else if (commandHistoryIndex === 0) {
+      commandHistoryIndex--;
+      document.getElementById('terminalInput').value = '';
+    }
+    e.preventDefault();
+  }
+}
+
+function executeCommand() {
+  const input = document.getElementById('terminalInput');
+  const command = input.value.trim();
+  input.value = '';
+  
+  if (!command) return;
+  
+  // Add to command history
+  commandHistory.push(command);
+  commandHistoryIndex = -1;
+  
+  const output = document.getElementById('terminalOutput');
+  output.innerHTML += `<span class="prompt">$</span> ${command}<br>`;
+  
+  // Process command
+  const args = command.split(' ');
+  const cmd = args[0].toLowerCase();
+  
+  switch(cmd) {
+    case 'help':
+      output.innerHTML += `Available commands:<br>
+        help - Show this help<br>
+        clear - Clear terminal<br>
+        open [app] - Open an app (notepad, camera, etc.)<br>
+        theme [light/dark] - Change theme<br>
+        time - Show current time<br>
+        date - Show current date<br>
+        ls - List available apps<br>
+        bg - Change background (color, image, gradient)<br><br>`;
+      break;
+    case 'clear':
+      output.innerHTML = '';
+      break;
+    case 'open':
+      if (args.length < 2) {
+        output.innerHTML += 'Usage: open [app]<br>Available apps: ' + apps.join(', ') + '<br><br>';
+      } else {
+        const app = args[1].toLowerCase();
+        if (apps.includes(app)) {
+          openApp(app);
+          output.innerHTML += `Opening ${app}<br><br>`;
+        } else {
+          output.innerHTML += `Unknown app: ${app}<br><br>`;
+        }
+      }
+      break;
+    case 'theme':
+      if (args.length < 2) {
+        output.innerHTML += 'Usage: theme [light/dark/auto]<br><br>';
+      } else {
+        const theme = args[1].toLowerCase();
+        if (theme === 'light' || theme === 'dark' || theme === 'auto') {
+          setTheme(theme);
+          output.innerHTML += `Theme set to ${theme}<br><br>`;
+        } else {
+          output.innerHTML += `Invalid theme: ${theme}<br><br>`;
+        }
+      }
+      break;
+    case 'time':
+      output.innerHTML += new Date().toLocaleTimeString() + '<br><br>';
+      break;
+    case 'date':
+      output.innerHTML += new Date().toLocaleDateString() + '<br><br>';
+      break;
+    case 'ls':
+      output.innerHTML += 'Available apps: ' + apps.join(', ') + '<br><br>';
+      break;
+    case 'bg':
+      openModal('bgSettings');
+      output.innerHTML += 'Opening background settings<br><br>';
+      break;
+    default:
+      output.innerHTML += `Command not found: ${cmd}<br>Type "help" for available commands<br><br>`;
+  }
+  
+  // Scroll to bottom
+  output.scrollTop = output.scrollHeight;
 }
 
 // Lock screen functions
 function lockScreen() {
   document.getElementById('lockScreen').style.display = 'flex';
-  // Bring to front
-  document.getElementById('lockScreen').style.zIndex = '9999';
+  bringToFront('lockScreen');
+  
+  // Disable all apps
+  apps.forEach(app => {
+    document.getElementById(app).style.display = 'none';
+    updateTaskbarItemState(app, false);
+  });
+  
+  activeWindows = [];
 }
 
 function unlockScreen() {
   const password = document.getElementById('lockPassword').value;
+  
   // Simple password check (in a real app, use proper authentication)
-  if (password === '1234' || !localStorage.getItem('lockPassword')) {
+  const savedPassword = localStorage.getItem('lockPassword') || '1234';
+  
+  if (password === savedPassword) {
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('lockPassword').value = '';
     
@@ -575,60 +1482,21 @@ function unlockScreen() {
     if (!localStorage.getItem('lockPassword')) {
       localStorage.setItem('lockPassword', '1234');
     }
+    
+    showNotification('Screen unlocked');
   } else {
-    alert('Incorrect password');
+    showNotification('Incorrect password', 'error');
+    document.getElementById('lockPassword').value = '';
+    document.getElementById('lockPassword').focus();
   }
 }
 
-// Initialize the app
-function init() {
-  // Load saved theme
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  
-  // Load saved background
-  const savedBg = localStorage.getItem('background');
-  if (savedBg) {
-    try {
-      const bg = JSON.parse(savedBg);
-      switch(bg.type) {
-        case 'color':
-          document.body.style.background = bg.value;
-          break;
-        case 'image-url':
-          document.body.style.backgroundImage = `url('${bg.value}')`;
-          document.body.style.backgroundSize = 'cover';
-          break;
-        case 'image-upload':
-          document.body.style.backgroundImage = `url('${bg.value}')`;
-          document.body.style.backgroundSize = 'cover';
-          break;
-        case 'gradient':
-          const { color1, color2, direction } = bg.value;
-          document.body.style.background = `linear-gradient(${direction}, ${color1}, ${color2})`;
-          break;
-      }
-    } catch (e) {
-      console.error('Error loading background:', e);
-    }
-  }
-  
-  // Initialize transparency settings
-  const transparencyToggle = document.getElementById('transparencyToggle');
-  if (transparencyToggle) {
-    transparencyToggle.addEventListener('change', toggleWindowTransparency);
-  }
-  
-  const transparencyLevel = document.getElementById('transparencyLevel');
-  if (transparencyLevel) {
-    transparencyLevel.addEventListener('input', changeTransparencyLevel);
-  }
-  
-  // Request notification permission
-  if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-    Notification.requestPermission();
-  }
+// Initialize window controls
+function initWindowControls() {
+  // Make sure all windows can be brought to front when clicked
+  document.querySelectorAll('.window').forEach(window => {
+    window.addEventListener('mousedown', function() {
+      bringToFront(this.id);
+    });
+  });
 }
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', init);
