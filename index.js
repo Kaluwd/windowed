@@ -1350,22 +1350,23 @@ function useLastResult() {
   }
 }
 
-// Terminal functions
 function handleTerminalKey(e) {
   if (e.key === 'Enter') {
     executeCommand();
   } else if (e.key === 'ArrowUp') {
-    // Navigate command history
+    // Navigate command history up
     if (commandHistory.length > 0 && commandHistoryIndex < commandHistory.length - 1) {
       commandHistoryIndex++;
-      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+      document.getElementById('terminalInput').value = 
+        commandHistory[commandHistory.length - 1 - commandHistoryIndex];
     }
     e.preventDefault();
   } else if (e.key === 'ArrowDown') {
-    // Navigate command history
+    // Navigate command history down
     if (commandHistoryIndex > 0) {
       commandHistoryIndex--;
-      document.getElementById('terminalInput').value = commandHistory[commandHistory.length - 1 - commandHistoryIndex];
+      document.getElementById('terminalInput').value = 
+        commandHistory[commandHistory.length - 1 - commandHistoryIndex];
     } else if (commandHistoryIndex === 0) {
       commandHistoryIndex--;
       document.getElementById('terminalInput').value = '';
