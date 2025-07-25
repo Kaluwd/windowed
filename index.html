@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mobile WebOS Toolkit</title>
+  <title>Enhanced WebOS Toolkit</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
@@ -11,9 +11,56 @@
 
 <!-- Lock Screen -->
 <div id="lockScreen" class="lock-screen" style="display: none;">
-  <h1>WebOS Locked</h1>
-  <input type="password" id="lockPassword" placeholder="Enter Password" />
-  <button onclick="unlockScreen()">Unlock</button>
+  <div class="lock-content">
+    <h1>WebOS Locked</h1>
+    <input type="password" id="lockPassword" placeholder="Enter Password" />
+    <button onclick="unlockScreen()">Unlock</button>
+  </div>
+</div>
+
+<!-- Background Settings Modal -->
+<div id="bgSettings" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Background Settings</h3>
+      <button class="close-modal" onclick="closeModal('bgSettings')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="bg-options">
+        <div class="option-group">
+          <h4>Solid Color</h4>
+          <input type="color" id="bgColorPicker" value="#f0f0f0">
+          <button onclick="setSolidColor()">Apply Color</button>
+        </div>
+        
+        <div class="option-group">
+          <h4>Image from URL</h4>
+          <input type="url" id="bgImageUrl" placeholder="Enter image URL">
+          <button onclick="setBgFromUrl()">Apply Image</button>
+        </div>
+        
+        <div class="option-group">
+          <h4>Upload Image</h4>
+          <input type="file" id="bgImageUpload" accept="image/*">
+          <button onclick="setBgFromUpload()">Apply Upload</button>
+        </div>
+        
+        <div class="option-group">
+          <h4>Gradient</h4>
+          <div class="gradient-controls">
+            <input type="color" id="gradientColor1" value="#4e54c8">
+            <input type="color" id="gradientColor2" value="#8f94fb">
+            <select id="gradientDirection">
+              <option value="to right">Horizontal</option>
+              <option value="to bottom">Vertical</option>
+              <option value="to bottom right">Diagonal</option>
+            </select>
+          </div>
+          <button onclick="setGradientBg()">Apply Gradient</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Windows Container -->
@@ -30,8 +77,11 @@
     </div>
     <div class="content">
       <textarea id="notepadText" placeholder="Type here..."></textarea>
-      <button onclick="saveNote()"><i class="fas fa-save"></i> Save</button>
-      <button onclick="loadNote()"><i class="fas fa-folder-open"></i> Open</button>
+      <div class="button-group">
+        <button onclick="saveNote()"><i class="fas fa-save"></i> Save</button>
+        <button onclick="loadNote()"><i class="fas fa-folder-open"></i> Open</button>
+        <button onclick="clearNote()"><i class="fas fa-trash"></i> Clear</button>
+      </div>
     </div>
   </div>
 
@@ -73,44 +123,197 @@
       </button>
     </div>
   </div>
+
+  <!-- File Explorer App -->
+  <div id="explorer" class="window" style="top: 150px; left: 50px; width: 700px; height: 500px; display: none;">
+    <div class="header" id="drag-explorer">
+      <span><i class="fas fa-folder"></i> File Explorer</span>
+      <div class="controls">
+        <button id="minimize-explorer"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-explorer"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-explorer"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="explorer-toolbar">
+        <button onclick="loadFile()"><i class="fas fa-folder-open"></i> Open</button>
+        <button onclick="saveFile()"><i class="fas fa-save"></i> Save</button>
+        <button onclick="createNewFile()"><i class="fas fa-file"></i> New</button>
+      </div>
+      <div class="file-preview-container">
+        <div id="fileInfo" class="file-info">
+          <p>No file selected</p>
+        </div>
+        <div id="fileContent" class="file-content">
+          <p class="placeholder">Select or drop a file here</p>
+        </div>
+      </div>
+      <div class="file-drop-area" id="fileDropArea">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <p>Drag & drop files here</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera App -->
+  <div id="camera" class="window" style="top: 120px; left: 80px; display: none;">
+    <div class="header" id="drag-camera">
+      <span><i class="fas fa-camera"></i> Camera</span>
+      <div class="controls">
+        <button id="minimize-camera"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-camera"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-camera"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <video id="video" autoplay playsinline style="width: 100%; border-radius: 0.5rem;"></video>
+      <canvas id="photoCanvas" style="display: none;"></canvas>
+      <div class="camera-controls">
+        <button onclick="takePhoto()"><i class="fas fa-camera"></i> Capture</button>
+        <button onclick="switchCamera()"><i class="fas fa-sync-alt"></i> Switch</button>
+        <button onclick="savePhoto()" id="savePhotoBtn" disabled><i class="fas fa-save"></i> Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings App -->
+  <div id="settings" class="window" style="top: 100px; left: 200px; width: 600px; height: 500px; display: none;">
+    <div class="header" id="drag-settings">
+      <span><i class="fas fa-cog"></i> Settings</span>
+      <div class="controls">
+        <button id="minimize-settings"><i class="fas fa-window-minimize"></i></button>
+        <button id="maximize-settings"><i class="fas fa-window-maximize"></i></button>
+        <button id="close-settings"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="settings-tabs">
+        <button class="tab-btn active" onclick="openSettingsTab('appearance')">Appearance</button>
+        <button class="tab-btn" onclick="openSettingsTab('system')">System</button>
+        <button class="tab-btn" onclick="openSettingsTab('privacy')">Privacy</button>
+      </div>
+      
+      <div id="appearance-tab" class="settings-tab-content">
+        <h3>Theme</h3>
+        <div class="theme-options">
+          <button onclick="setTheme('light')"><i class="fas fa-sun"></i> Light</button>
+          <button onclick="setTheme('dark')"><i class="fas fa-moon"></i> Dark</button>
+          <button onclick="setTheme('auto')"><i class="fas fa-adjust"></i> Auto</button>
+        </div>
+        
+        <h3>Background</h3>
+        <div class="bg-preview" id="currentBgPreview"></div>
+        <button onclick="openModal('bgSettings')"><i class="fas fa-palette"></i> Change Background</button>
+        
+        <h3>Window Style</h3>
+        <div class="window-style-options">
+          <label>
+            <input type="checkbox" id="transparencyToggle" onchange="toggleWindowTransparency()">
+            Window Transparency
+          </label>
+          <label>
+            <input type="range" id="transparencyLevel" min="0" max="100" value="90" oninput="changeTransparencyLevel()">
+            Transparency Level
+          </label>
+        </div>
+      </div>
+      
+      <div id="system-tab" class="settings-tab-content" style="display: none;">
+        <h3>System Information</h3>
+        <div id="systemInfo" class="system-info">
+          <p><strong>OS:</strong> WebOS Toolkit</p>
+          <p><strong>Browser:</strong> <span id="browserInfo"></span></p>
+          <p><strong>Screen:</strong> <span id="screenInfo"></span></p>
+          <p><strong>Memory:</strong> <span id="memoryInfo"></span></p>
+        </div>
+        
+        <h3>Performance</h3>
+        <div class="performance-options">
+          <label>
+            <input type="checkbox" id="animationsToggle" checked>
+            Enable Animations
+          </label>
+          <label>
+            <input type="checkbox" id="hardwareAccelToggle" checked>
+            Hardware Acceleration
+          </label>
+        </div>
+      </div>
+      
+      <div id="privacy-tab" class="settings-tab-content" style="display: none;">
+        <h3>Permissions</h3>
+        <div class="permission-item">
+          <span>Camera Access</span>
+          <button onclick="requestCameraPermission()">Request</button>
+        </div>
+        <div class="permission-item">
+          <span>Location Access</span>
+          <button onclick="requestLocationPermission()">Request</button>
+        </div>
+        <div class="permission-item">
+          <span>Notifications</span>
+          <button onclick="requestNotificationPermission()">Request</button>
+        </div>
+        
+        <h3>Privacy Settings</h3>
+        <label>
+          <input type="checkbox" id="trackingProtection" checked>
+          Enable Tracking Protection
+        </label>
+        <label>
+          <input type="checkbox" id="clearOnExit">
+          Clear Data on Exit
+        </label>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Taskbar -->
 <div class="taskbar">
   <div class="task-item" onclick="openApp('notepad')">
-    <i class="fas fa-edit"></i> Notepad
+    <i class="fas fa-edit"></i> <span class="task-label">Notepad</span>
   </div>
   <div class="task-item" onclick="openApp('camera')">
-    <i class="fas fa-camera"></i> Camera
+    <i class="fas fa-camera"></i> <span class="task-label">Camera</span>
   </div>
   <div class="task-item" onclick="openApp('location')">
-    <i class="fas fa-map-marker-alt"></i> Location
+    <i class="fas fa-map-marker-alt"></i> <span class="task-label">Location</span>
   </div>
   <div class="task-item" onclick="openApp('explorer')">
-    <i class="fas fa-folder"></i> Explorer
+    <i class="fas fa-folder"></i> <span class="task-label">Explorer</span>
   </div>
   <div class="task-item" onclick="openApp('clipboard')">
-    <i class="fas fa-clipboard"></i> Clipboard
+    <i class="fas fa-clipboard"></i> <span class="task-label">Clipboard</span>
   </div>
   <div class="task-item" onclick="openApp('calculator')">
-    <i class="fas fa-calculator"></i> Calculator
+    <i class="fas fa-calculator"></i> <span class="task-label">Calculator</span>
   </div>
   <div class="task-item" onclick="openApp('browser')">
-    <i class="fas fa-globe"></i> Browser
+    <i class="fas fa-globe"></i> <span class="task-label">Browser</span>
   </div>
   <div class="task-item" onclick="openApp('clock')">
-    <i class="fas fa-clock"></i> Clock
+    <i class="fas fa-clock"></i> <span class="task-label">Clock</span>
   </div>
   <div class="task-item" onclick="openApp('terminal')">
-    <i class="fas fa-terminal"></i> Terminal
+    <i class="fas fa-terminal"></i> <span class="task-label">Terminal</span>
   </div>
-  <button class="toggle-theme" onclick="toggleTheme()">
-    <i class="fas fa-moon"></i> Theme
-  </button>
-  <button class="task-item" onclick="lockScreen()">
-    <i class="fas fa-lock"></i> Lock
-  </button>
+  <div class="task-item" onclick="openApp('settings')">
+    <i class="fas fa-cog"></i> <span class="task-label">Settings</span>
+  </div>
+  
+  <div class="taskbar-right">
+    <button class="toggle-theme" onclick="toggleTheme()">
+      <i class="fas fa-moon"></i> <span class="task-label">Theme</span>
+    </button>
+    <button class="task-item" onclick="lockScreen()">
+      <i class="fas fa-lock"></i> <span class="task-label">Lock</span>
+    </button>
+  </div>
 </div>
+
+<!-- System Notifications -->
+<div id="notification-container"></div>
 
 <script src="index.js"></script>
 </body>
